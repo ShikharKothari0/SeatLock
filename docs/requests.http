@@ -1,0 +1,14 @@
+### Get all events
+GET http://localhost:8080/api/events
+
+### Get one event
+GET http://localhost:8080/api/events/22222222-2222-2222-2222-222222222222
+
+### Get all seats for an event
+GET http://localhost:8080/api/events/22222222-2222-2222-2222-222222222222/seats
+
+### Get only available seats
+GET http://localhost:8080/api/events/22222222-2222-2222-2222-222222222222/seats?status=AVAILABLE
+
+### Trigger a 404
+GET http://localhost:8080/api/events/00000000-0000-0000-0000-000000000000
