@@ -6,6 +6,7 @@ import lombok.Setter;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @Entity
@@ -43,4 +44,7 @@ public class Seat {
 
     @Version
     private Long version;
+
+    @Column(name = "hold_expires_at")
+    private Instant holdExpiresAt;
 }

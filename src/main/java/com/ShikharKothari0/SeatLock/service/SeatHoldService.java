@@ -8,10 +8,12 @@ import com.ShikharKothari0.SeatLock.repository.SeatRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.UUID;
 
 @Service
-public class SeatHoldService {   // A dedicated service that orchestrates both Redis and Postgres for the hold operations
+public class SeatHoldService {       // A dedicated service that orchestrates both Redis and Postgres for the hold operations
+    private static final Duration HOLD_DURATION = Duration.ofMinutes(5);     // Set a TTL for the lock to avoid indefinite holds
     private final RedisLockService redisLockService;
     private final SeatRepository seatRepository;
 
@@ -29,7 +31,7 @@ public class SeatHoldService {   // A dedicated service that orchestrates both R
         boolean acquired = redisLockService.acquireSeatHold(
                 seatId.toString(),
                 userId.toString(),
-                Duration.ofMinutes(5)
+                HOLD_DURATION
         );
 
         if (!acquired) {
@@ -46,6 +48,7 @@ public class SeatHoldService {   // A dedicated service that orchestrates both R
             }
 
             seat.setStatus(SeatStatus.HELD);
+            seat.setHoldExpiresAt(Instant.now().plus(HOLD_DURATION));
             seatRepository.save(seat);
 
         } catch (Exception e) {
