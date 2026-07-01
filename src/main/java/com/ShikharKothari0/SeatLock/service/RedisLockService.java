@@ -1,17 +1,20 @@
 package com.ShikharKothari0.SeatLock.service;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
 import java.time.Duration;
+import java.util.Collections;
 
 @Service
 public class RedisLockService {
     private final StringRedisTemplate redisTemplate;
+    private final RedisScript<Long> holdSeatScript;
 
-    @Autowired
-    public RedisLockService(StringRedisTemplate redisTemplate) {
+
+    public RedisLockService(StringRedisTemplate redisTemplate, RedisScript<Long> holdSeatScript) {
         this.redisTemplate = redisTemplate;
+        this.holdSeatScript = holdSeatScript;
     }
 
     public boolean acquireLock(String key, String value, Duration ttl) {
@@ -25,5 +28,16 @@ public class RedisLockService {
 
     public String getLockOwner(String key) {
         return redisTemplate.opsForValue().get(key);
+    }
+
+    public boolean acquireSeatHold(String seatId, String userId, Duration ttl) {
+        String key = "seat:lock:" + seatId;
+        Long result = redisTemplate.execute(
+                holdSeatScript,
+                Collections.singletonList(key),
+                userId,
+                String.valueOf(ttl.getSeconds())
+        );
+        return result != null && result == 1L;
     }
 }
