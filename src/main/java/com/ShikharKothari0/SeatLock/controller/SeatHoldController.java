@@ -2,6 +2,7 @@ package com.ShikharKothari0.SeatLock.controller;
 
 import com.ShikharKothari0.SeatLock.dto.request.SeatHoldRequest;
 import com.ShikharKothari0.SeatLock.service.RedisLockService;
+import com.ShikharKothari0.SeatLock.service.SeatHoldService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,10 +14,10 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/seats")
 public class SeatHoldController {
-    private final RedisLockService redisLockService;
+    private final SeatHoldService seatHoldService;
 
-    public SeatHoldController(RedisLockService redisLockService) {
-        this.redisLockService = redisLockService;
+    public SeatHoldController(SeatHoldService seatHoldService) {
+        this.seatHoldService = seatHoldService;
     }
 
     @PostMapping("/{seatId}/hold")
@@ -24,17 +25,10 @@ public class SeatHoldController {
             @PathVariable UUID seatId,
             @Valid @RequestBody SeatHoldRequest request
     ) {
-        boolean acquired = redisLockService.acquireSeatHold(
-                seatId.toString(),
-                request.userId().toString(),
-                Duration.ofMinutes(5)
-        );
-
-        if (acquired) {
-            return ResponseEntity.ok(Map.of("status", "HELD", "seatId", seatId));
-        } else {
-            return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(Map.of("status", "ALREADY_HELD", "seatId", seatId));
-        }
+        seatHoldService.holdSeat(seatId, request.userId());
+        return ResponseEntity.ok(Map.of(
+                "status", "HELD",
+                "seatId", seatId
+        ));
     }
 }
