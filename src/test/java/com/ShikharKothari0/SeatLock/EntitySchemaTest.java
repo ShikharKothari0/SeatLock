@@ -28,7 +28,7 @@ public class EntitySchemaTest {
         Event event = new Event(null, "Test Concert", venue, Instant.now(), Instant.now().plusSeconds(3600));
         entityManager.persist(event);
 
-        Seat seat = new Seat(null, event, "A1", "Section A", SeatStatus.AVAILABLE, null, null);
+        Seat seat = new Seat(null, event, "A1", "Section A", SeatStatus.AVAILABLE, null, null, null);
         entityManager.persist(seat);
 
         entityManager.flush();

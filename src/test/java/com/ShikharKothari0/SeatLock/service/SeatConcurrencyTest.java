@@ -28,7 +28,7 @@ public class SeatConcurrencyTest {
                 new Event(null, "Concurrency Test Event", venue, Instant.now(), Instant.now().plusSeconds(3600))
         );
         Seat seat = seatRepository.save(
-                new Seat(null, event, "C1", "Section C", SeatStatus.AVAILABLE, null, null)
+                new Seat(null, event, "C1", "Section C", SeatStatus.AVAILABLE, null, null, null)
         );
         contendedSeatId = seat.getId();
     }

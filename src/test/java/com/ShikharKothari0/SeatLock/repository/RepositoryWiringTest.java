@@ -25,7 +25,7 @@ public class RepositoryWiringTest {
                 new Event(null, "Wiring Test Event", venue, Instant.now(), Instant.now().plusSeconds(3600))
         );
         Seat seat = seatRepository.save(
-                new Seat(null, event, "Z1", "Section Z", SeatStatus.AVAILABLE, null, null)
+                new Seat(null, event, "Z1", "Section Z", SeatStatus.AVAILABLE, null, null, null)
         );
         AppUser user = appUserRepository.save(
                 new AppUser(null, "wiretest@example.com", "Wire Test User")
