@@ -24,10 +24,4 @@ public class SeatController {
     ) {
         return seatService.getSeats(eventId, status);
     }
-
-    @PostMapping("/{seatId}/reserve")
-    public ResponseEntity<Void> reserveSeat(@PathVariable UUID eventId, @PathVariable UUID seatId) {
-        seatService.reserveSeatNaively(seatId);
-        return ResponseEntity.ok().build();
-    }
 }

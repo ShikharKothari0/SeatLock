@@ -25,16 +25,4 @@ public class SeatService {
                 : seatRepository.findByEventId(eventId);
         return seats.stream().map(DtoMapper::toSeatResponse).toList();
     }
-
-    public void reserveSeatNaively(UUID seatId) {
-        Seat seat = seatRepository.findById(seatId)
-                .orElseThrow(() -> new ResourceNotFoundException("Seat not found: " + seatId));
-
-        if (seat.getStatus() != SeatStatus.AVAILABLE) {
-            throw new SeatNotAvailableException("Seat is not available: " + seatId);
-        }
-
-        seat.setStatus(SeatStatus.HELD);
-        seatRepository.save(seat);
-    }
 }
