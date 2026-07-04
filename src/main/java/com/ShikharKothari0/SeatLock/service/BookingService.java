@@ -6,6 +6,8 @@ import com.ShikharKothari0.SeatLock.dto.response.BookingResponse;
 import com.ShikharKothari0.SeatLock.entity.*;
 import com.ShikharKothari0.SeatLock.exception.ResourceNotFoundException;
 import com.ShikharKothari0.SeatLock.exception.SeatNotAvailableException;
+import com.ShikharKothari0.SeatLock.kafka.event.SeatConfirmedEvent;
+import com.ShikharKothari0.SeatLock.kafka.producer.SeatEventProducer;
 import com.ShikharKothari0.SeatLock.repository.AppUserRepository;
 import com.ShikharKothari0.SeatLock.repository.BookingRepository;
 import com.ShikharKothari0.SeatLock.repository.SeatRepository;
@@ -21,17 +23,20 @@ public class BookingService {
     private final SeatRepository seatRepository;
     private final BookingRepository bookingRepository;
     private final RedisLockService redisLockService;
+    private final SeatEventProducer seatEventProducer;
 
     public BookingService(
             AppUserRepository appUserRepository,
             SeatRepository seatRepository,
             BookingRepository bookingRepository,
-            RedisLockService redisLockService
+            RedisLockService redisLockService,
+            SeatEventProducer seatEventProducer
     ) {
         this.appUserRepository = appUserRepository;
         this.seatRepository = seatRepository;
         this.bookingRepository = bookingRepository;
         this.redisLockService = redisLockService;
+        this.seatEventProducer = seatEventProducer;
     }
 
     @Transactional
@@ -94,6 +99,15 @@ public class BookingService {
         for (UUID seatId : request.seatIds()) {
             redisLockService.releaseLock("seat:lock:" + seatId);
         }
+
+        // Step 9: publish SeatConfirmedEvent to Kafka
+        seatEventProducer.publishSeatConfirmed(new SeatConfirmedEvent(
+                booking.getId(),
+                request.userId(),
+                event.getId(),
+                request.seatIds(),
+                Instant.now()
+        ));
 
         return DtoMapper.toBookingResponse(booking);
     }

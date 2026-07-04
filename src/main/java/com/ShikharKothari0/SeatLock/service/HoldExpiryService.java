@@ -2,6 +2,8 @@ package com.ShikharKothari0.SeatLock.service;
 
 import com.ShikharKothari0.SeatLock.entity.Seat;
 import com.ShikharKothari0.SeatLock.entity.SeatStatus;
+import com.ShikharKothari0.SeatLock.kafka.event.SeatReleasedEvent;
+import com.ShikharKothari0.SeatLock.kafka.producer.SeatEventProducer;
 import com.ShikharKothari0.SeatLock.repository.SeatRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,13 +19,16 @@ public class HoldExpiryService {
 
     private final SeatRepository seatRepository;
     private final RedisLockService redisLockService;
+    private final SeatEventProducer seatEventProducer;
 
     public HoldExpiryService(
             SeatRepository seatRepository,
-            RedisLockService redisLockService
+            RedisLockService redisLockService,
+            SeatEventProducer seatEventProducer
     ) {
         this.seatRepository = seatRepository;
         this.redisLockService = redisLockService;
+        this.seatEventProducer = seatEventProducer;
     }
 
     @Scheduled(fixedDelay = 30000)  // runs the job again 30 seconds after the jobs previous execution
@@ -54,6 +59,13 @@ public class HoldExpiryService {
             seat.setStatus(SeatStatus.AVAILABLE);
             seat.setHoldExpiresAt(null);
             log.info("Released expired hold on seat: {}", seat.getId());
+
+            seatEventProducer.publishSeatReleased(new SeatReleasedEvent(
+                    seat.getId(),
+                    seat.getEvent().getId(),
+                    Instant.now(),
+                    "HOLD_EXPIRED"
+            ));
         }
 
         seatRepository.saveAll(expiredSeats);
