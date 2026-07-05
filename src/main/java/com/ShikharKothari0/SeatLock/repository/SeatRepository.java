@@ -15,4 +15,6 @@ public interface SeatRepository extends JpaRepository<Seat, UUID> {
 
     @Query("SELECT s FROM Seat s WHERE s.status = :status AND s.holdExpiresAt < :now")
     List<Seat> findExpiredHolds(@Param("status") SeatStatus status, @Param("now") Instant now);
+
+    List<Seat> findByBookingId(UUID bookingId);
 }

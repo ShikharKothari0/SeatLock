@@ -14,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 public class SeatConcurrencyTest {
-    @Autowired private SeatService seatService;
+    @Autowired private SeatHoldService seatHoldService;
     @Autowired private SeatRepository seatRepository;
     @Autowired private EventRepository eventRepository;
     @Autowired private VenueRepository venueRepository;
@@ -49,7 +49,7 @@ public class SeatConcurrencyTest {
                 readyLatch.countDown();
                 try {
                     startLatch.await(); // all threads wait here, then release together
-                    seatService.reserveSeatNaively(contendedSeatId);
+                    seatHoldService.holdSeat(contendedSeatId, UUID.randomUUID());
                     successCount.incrementAndGet();
                 } catch (Exception e) {
                     failureCount.incrementAndGet();

@@ -11,14 +11,18 @@ import com.ShikharKothari0.SeatLock.kafka.producer.SeatEventProducer;
 import com.ShikharKothari0.SeatLock.repository.AppUserRepository;
 import com.ShikharKothari0.SeatLock.repository.BookingRepository;
 import com.ShikharKothari0.SeatLock.repository.SeatRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
 public class BookingService {
+    private static final Logger log = LoggerFactory.getLogger(BookingService.class);
     private final AppUserRepository appUserRepository;
     private final SeatRepository seatRepository;
     private final BookingRepository bookingRepository;
@@ -31,6 +35,7 @@ public class BookingService {
             BookingRepository bookingRepository,
             RedisLockService redisLockService,
             SeatEventProducer seatEventProducer
+
     ) {
         this.appUserRepository = appUserRepository;
         this.seatRepository = seatRepository;
@@ -42,7 +47,21 @@ public class BookingService {
     @Transactional
     public BookingResponse confirmBooking(BookingConfirmRequest request) {
 
-        // Step 1: validate Redis holds exist and belong to this user
+        // Step 1: idempotency check
+        Optional<Booking> existingBooking = bookingRepository.findByIdempotencyKey(request.idempotencyKey());
+
+        if (existingBooking.isPresent()) {
+            log.info(
+                    "Idempotent request detected — returning existing booking {} " + "for idempotencyKey={}",
+                    existingBooking.get().getId(),
+                    request.idempotencyKey()
+            );
+            Booking booking = existingBooking.get();
+            booking.setSeats(seatRepository.findByBookingId(booking.getId()));
+            return DtoMapper.toBookingResponse(booking);
+        }
+
+        // Step 2: validate Redis holds exist and belong to this user
         for (UUID seatId : request.seatIds()) {
             String holdOwner = redisLockService.getLockOwner("seat:lock:" + seatId);
 
@@ -58,22 +77,22 @@ public class BookingService {
             }
         }
 
-        // Step 2: find the user
+        // Step 3: find the user
         AppUser user = appUserRepository.findById(request.userId())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "User not found: " + request.userId()
                 ));
 
-        // Step 3: find all seats
+        // Step 4: find all seats
         List<Seat> seats = seatRepository.findAllById(request.seatIds());
         if (seats.size() != request.seatIds().size()) {
             throw new ResourceNotFoundException("One or more seats not found");
         }
 
-        // Step 4: get the event from the first seat
+        // Step 5: get the event from the first seat
         Event event = seats.get(0).getEvent();
 
-        // Step 5: create and save the booking
+        // Step 6: create and save the booking
         Booking booking = new Booking(
                 null,
                 user,
@@ -85,22 +104,23 @@ public class BookingService {
         );
         bookingRepository.save(booking);
 
-        // Step 6: flip each seat to CONFIRMED and link to this booking
+        // Step 7: flip each seat to CONFIRMED and link to this booking
         for (Seat seat : seats) {
             seat.setStatus(SeatStatus.CONFIRMED);
             seat.setBooking(booking);
+            seat.setHoldExpiresAt(null);
         }
         seatRepository.saveAll(seats);
 
-        // Step 7: set seats on booking so DtoMapper can access them
+        // Step 8: set seats on booking so DtoMapper can access them
         booking.setSeats(seats);
 
-        // Step 8: release Redis holds after successful DB writes
+        // Step 9: release Redis holds after successful DB writes
         for (UUID seatId : request.seatIds()) {
             redisLockService.releaseLock("seat:lock:" + seatId);
         }
 
-        // Step 9: publish SeatConfirmedEvent to Kafka
+        // Step 10: publish SeatConfirmedEvent to Kafka
         seatEventProducer.publishSeatConfirmed(new SeatConfirmedEvent(
                 booking.getId(),
                 request.userId(),
@@ -108,6 +128,8 @@ public class BookingService {
                 request.seatIds(),
                 Instant.now()
         ));
+
+        log.info("Booking confirmed: bookingId:{} userId:{} seatCount:{}", booking.getId(), request.userId(), seats.size());
 
         return DtoMapper.toBookingResponse(booking);
     }
