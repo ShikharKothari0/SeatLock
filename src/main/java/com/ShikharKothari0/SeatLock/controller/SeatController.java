@@ -3,7 +3,6 @@ package com.ShikharKothari0.SeatLock.controller;
 import com.ShikharKothari0.SeatLock.dto.response.SeatResponse;
 import com.ShikharKothari0.SeatLock.entity.SeatStatus;
 import com.ShikharKothari0.SeatLock.service.SeatService;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
