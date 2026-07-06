@@ -3,6 +3,7 @@ package com.ShikharKothari0.SeatLock.kafka.consumer;
 import com.ShikharKothari0.SeatLock.config.KafkaTopicConfig;
 import com.ShikharKothari0.SeatLock.kafka.event.SeatConfirmedEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.Setter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -16,6 +17,8 @@ public class SeatConfirmedConsumer {
     private static final Logger log = LoggerFactory.getLogger(SeatConfirmedConsumer.class);
 
     private final ObjectMapper objectMapper;
+    @Setter
+    private volatile boolean simulateFailure = false;       // It is a purely testing tool. to be toggled only during testing.
 
     public SeatConfirmedConsumer(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
@@ -31,6 +34,15 @@ public class SeatConfirmedConsumer {
             @Header(KafkaHeaders.RECEIVED_PARTITION) int partition,
             @Header(KafkaHeaders.OFFSET) long offset
     ) {
+        //  the simulation hook must be before the try-catch.
+        // If inside the try-catch, the RuntimeException gets swallowed and
+        // never reaches the error handler — retries and DLT won't trigger
+        if (simulateFailure) {
+            throw new RuntimeException(
+                    "Simulated processing failure — partition=" + partition + " offset=" + offset
+            );
+        }
+
         try {
             SeatConfirmedEvent event = objectMapper.readValue(message, SeatConfirmedEvent.class);
 
