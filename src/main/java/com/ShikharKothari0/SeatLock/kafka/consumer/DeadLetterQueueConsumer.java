@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 import java.nio.charset.StandardCharsets;
+import java.nio.ByteBuffer;
 
 @Service
 public class DeadLetterQueueConsumer {
@@ -45,6 +46,19 @@ public class DeadLetterQueueConsumer {
     private String extractHeader(ConsumerRecord<?, ?> record, String headerName) {
         Header header = record.headers().lastHeader(headerName);
         if (header == null) return "unknown";
+
+        // partition and offset headers are stored as serialized integers/longs and not as UTF-8 strings
+        if (headerName.equals("kafka_dlt-original-partition")) {
+            return String.valueOf(
+                    ByteBuffer.wrap(header.value()).getInt()
+            );
+        }
+        if (headerName.equals("kafka_dlt-original-offset")) {
+            return String.valueOf(
+                    ByteBuffer.wrap(header.value()).getLong()
+            );
+        }
+
         return new String(header.value(), StandardCharsets.UTF_8);
     }
 }

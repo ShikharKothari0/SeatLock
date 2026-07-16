@@ -102,7 +102,7 @@ public class BookingService {
                 null,
                 request.idempotencyKey()
         );
-        bookingRepository.save(booking);
+        booking = bookingRepository.save(booking);
 
         // Step 7: flip each seat to CONFIRMED and link to this booking
         for (Seat seat : seats) {

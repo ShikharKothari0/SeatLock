@@ -80,7 +80,7 @@ public class KafkaConsumerConfig {
                         "Kafka retry attempt {}/{} — topic={} partition={} " +
                                 "offset={} key={} error={}",
                         deliveryAttempt,
-                        backOff.getMaxAttempts(),
+                        backOff.getMaxAttempts() + 1,      // +1 because maxAttempts = retries only
                         record.topic(),
                         record.partition(),
                         record.offset(),
