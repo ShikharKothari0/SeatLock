@@ -20,21 +20,28 @@ public class CircuitBreakerEventConfig {
 
     @PostConstruct
     public void registerEventListeners() {
-        CircuitBreaker redisLockCb =
-                circuitBreakerRegistry.circuitBreaker("redisLock");
+                registerListeners("redisLock");
+                registerListeners("redisCache");
+    }
 
-        redisLockCb.getEventPublisher()
+    private void registerListeners(String name) {
+        CircuitBreaker cb = circuitBreakerRegistry.circuitBreaker(name);
+
+        cb.getEventPublisher()
                 .onStateTransition(event -> log.warn(
-                        "[CIRCUIT BREAKER] redisLock state transition: {} → {}",
+                        "[CIRCUIT BREAKER] {} state transition: {} → {}",
+                        name,
                         event.getStateTransition().getFromState(),
                         event.getStateTransition().getToState()
                 ))
                 .onError(event -> log.debug(
-                        "[CIRCUIT BREAKER] redisLock recorded failure: {}",
+                        "[CIRCUIT BREAKER] {} recorded failure: {}",
+                        name,
                         event.getThrowable().getMessage()
                 ))
                 .onSuccess(event -> log.debug(
-                        "[CIRCUIT BREAKER] redisLock recorded success"
+                        "[CIRCUIT BREAKER] {} recorded success",
+                        name
                 ));
     }
 }
