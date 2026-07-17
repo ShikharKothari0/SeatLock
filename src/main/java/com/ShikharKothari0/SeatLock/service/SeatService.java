@@ -40,7 +40,7 @@ public class SeatService {
             return seats;
         }
         // Step 2: for cache miss, we query Postgres
-        log.debug("Cache miss — querying Postgres for eventId={} filter={}", eventId, status);
+        log.debug("Cache MISS — querying Postgres for eventId={} filter={}", eventId, status);
 
         List<Seat> seats = seatRepository.findByEventId(eventId);
         List<SeatResponse> response = seats.stream()

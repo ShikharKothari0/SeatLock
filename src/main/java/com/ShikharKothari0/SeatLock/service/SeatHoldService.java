@@ -7,6 +7,8 @@ import com.ShikharKothari0.SeatLock.exception.SeatNotAvailableException;
 import com.ShikharKothari0.SeatLock.kafka.event.SeatHeldEvent;
 import com.ShikharKothari0.SeatLock.kafka.producer.SeatEventProducer;
 import com.ShikharKothari0.SeatLock.repository.SeatRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
@@ -15,19 +17,23 @@ import java.util.UUID;
 
 @Service
 public class SeatHoldService {       // A dedicated service that orchestrates both Redis and Postgres for the hold operations
+    private static final Logger log = LoggerFactory.getLogger(SeatHoldService.class);
     private static final Duration HOLD_DURATION = Duration.ofMinutes(5);     // Set a TTL for the lock to avoid indefinite holds
     private final RedisLockService redisLockService;
     private final SeatRepository seatRepository;
     private final SeatEventProducer seatEventProducer;
+    private final SeatCacheService seatCacheService;
 
     public SeatHoldService(
             RedisLockService redisLockService,
             SeatRepository seatRepository,
-            SeatEventProducer seatEventProducer
+            SeatEventProducer seatEventProducer,
+            SeatCacheService seatCacheService
     ) {
         this.redisLockService = redisLockService;
         this.seatRepository = seatRepository;
         this.seatEventProducer = seatEventProducer;
+        this.seatCacheService = seatCacheService;
     }
 
     @Transactional
@@ -55,6 +61,11 @@ public class SeatHoldService {       // A dedicated service that orchestrates bo
             seat.setStatus(SeatStatus.HELD);
             seat.setHoldExpiresAt(Instant.now().plus(HOLD_DURATION));
             seatRepository.save(seat);
+
+            // invalidate cache after the Postgres write commits
+            UUID eventId = seat.getEvent().getId();
+            seatCacheService.evictCache(eventId);
+            log.debug("Cache invalidated after hold — eventId={} seatId={}", eventId, seatId);
 
             seatEventProducer.publishSeatHeld(new SeatHeldEvent(
                     seatId,

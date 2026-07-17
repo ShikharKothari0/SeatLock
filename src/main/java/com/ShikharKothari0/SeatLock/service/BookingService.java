@@ -28,20 +28,22 @@ public class BookingService {
     private final BookingRepository bookingRepository;
     private final RedisLockService redisLockService;
     private final SeatEventProducer seatEventProducer;
+    private final SeatCacheService seatCacheService;
 
     public BookingService(
             AppUserRepository appUserRepository,
             SeatRepository seatRepository,
             BookingRepository bookingRepository,
             RedisLockService redisLockService,
-            SeatEventProducer seatEventProducer
-
+            SeatEventProducer seatEventProducer,
+            SeatCacheService seatCacheService
     ) {
         this.appUserRepository = appUserRepository;
         this.seatRepository = seatRepository;
         this.bookingRepository = bookingRepository;
         this.redisLockService = redisLockService;
         this.seatEventProducer = seatEventProducer;
+        this.seatCacheService = seatCacheService;
     }
 
     @Transactional
@@ -111,6 +113,11 @@ public class BookingService {
             seat.setHoldExpiresAt(null);
         }
         seatRepository.saveAll(seats);
+
+        // invalidate cache after seat status writes commit
+        seatCacheService.evictCache(event.getId());
+        log.debug("Cache invalidated after booking confirmed — eventId={} bookingId={}",
+                event.getId(), booking.getId());
 
         // Step 8: set seats on booking so DtoMapper can access them
         booking.setSeats(seats);

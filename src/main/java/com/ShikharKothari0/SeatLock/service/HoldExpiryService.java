@@ -12,6 +12,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
 
 @Service
 public class HoldExpiryService {
@@ -20,15 +23,18 @@ public class HoldExpiryService {
     private final SeatRepository seatRepository;
     private final RedisLockService redisLockService;
     private final SeatEventProducer seatEventProducer;
+    private final SeatCacheService seatCacheService;
 
     public HoldExpiryService(
             SeatRepository seatRepository,
             RedisLockService redisLockService,
-            SeatEventProducer seatEventProducer
+            SeatEventProducer seatEventProducer,
+            SeatCacheService seatCacheService
     ) {
         this.seatRepository = seatRepository;
         this.redisLockService = redisLockService;
         this.seatEventProducer = seatEventProducer;
+        this.seatCacheService = seatCacheService;
     }
 
     @Scheduled(fixedDelay = 30000)  // runs the job again 30 seconds after the jobs previous execution
@@ -42,6 +48,11 @@ public class HoldExpiryService {
         }
 
         log.info("Hold expiry job: found {} expired holds to release", expiredSeats.size());
+
+        // ── collect distinct event IDs affected in this batch ─────────────────
+        // multiple expired seats can belong to different events in one run,
+        // so we track distinct event IDs to evict each exactly once
+        Set<UUID> affectedEventIds = new HashSet<>();
 
         for (Seat seat : expiredSeats) {
             String redisKey = "seat:lock:" + seat.getId();
@@ -58,7 +69,8 @@ public class HoldExpiryService {
 
             seat.setStatus(SeatStatus.AVAILABLE);
             seat.setHoldExpiresAt(null);
-            log.info("Released expired hold on seat: {}", seat.getId());
+
+            affectedEventIds.add(seat.getEvent().getId());
 
             seatEventProducer.publishSeatReleased(new SeatReleasedEvent(
                     seat.getId(),
@@ -66,9 +78,17 @@ public class HoldExpiryService {
                     Instant.now(),
                     "HOLD_EXPIRED"
             ));
+            log.info("Released expired hold on seat: {}", seat.getId());
         }
 
         seatRepository.saveAll(expiredSeats);
+
+        // invalidate cache once per distinct event, after all writes commit
+        for (UUID eventId : affectedEventIds) {
+            seatCacheService.evictCache(eventId);
+        }
+        log.debug("Cache invalidated for {} distinct events after expiry batch", affectedEventIds.size());
+
         log.info("Hold expiry job: successfully released {} seats", expiredSeats.size());
     }
 }
