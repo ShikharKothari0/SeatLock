@@ -17,14 +17,17 @@ INSERT INTO seat (id, event_id, seat_number, section, status, version)
 VALUES
     ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', 'A1', 'Section A', 'AVAILABLE', 0),
     ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '22222222-2222-2222-2222-222222222222', 'A2', 'Section A', 'AVAILABLE', 0),
-    ('cccccccc-cccc-cccc-cccc-cccccccccccc', '22222222-2222-2222-2222-222222222222', 'A3', 'Section A', 'AVAILABLE', 0);
+    ('cccccccc-cccc-cccc-cccc-cccccccccccc', '22222222-2222-2222-2222-222222222222', 'A3', 'Section A', 'AVAILABLE', 0),
+    ('dddddddd-dddd-dddd-dddd-dddddddddddd', '22222222-2222-2222-2222-222222222222', 'A4', 'Section A', 'AVAILABLE', 0),
+    ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '22222222-2222-2222-2222-222222222222', 'A5', 'Section A', 'AVAILABLE', 0),
+    ('ffffffff-ffff-ffff-ffff-ffffffffffff', '22222222-2222-2222-2222-222222222222', 'A6', 'Section A', 'AVAILABLE', 0);
 
--- Generate rest 97 seats (A4–A100) for this event, all AVAILABLE with random UUIDs
+-- Generate rest 94 seats (A7–A100) for this event, all AVAILABLE with random UUIDs
 INSERT INTO seat (id, event_id, seat_number, section, status, version)
 SELECT
     gen_random_uuid(),
     '22222222-2222-2222-2222-222222222222',
-    'A' || generate_series(4, 100),
+    'A' || generate_series(7, 100),
     'Section A',
     'AVAILABLE',
     0;

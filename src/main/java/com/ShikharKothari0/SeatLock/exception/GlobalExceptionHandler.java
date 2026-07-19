@@ -67,4 +67,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Void> handleNotFound(NoResourceFoundException e) {
         return ResponseEntity.notFound().build();
     }
+
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<Map<String, Object>> handleRateLimitExceeded(
+            RateLimitExceededException ex
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.TOO_MANY_REQUESTS)   // 429
+                .body(errorBody(ex.getMessage()));
+    }
 }
