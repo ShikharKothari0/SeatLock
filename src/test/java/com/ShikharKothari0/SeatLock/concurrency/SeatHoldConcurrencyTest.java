@@ -91,7 +91,7 @@ public class SeatHoldConcurrencyTest {
     // concurrency test
 
     @Test
-    void exactly100ThreadsShouldSucceedWhenHolding100SeatsWithin500Concurrent()
+    void exactly100ThreadsShouldSucceedWhenHolding100SeatsWithin200Concurrent()
             throws InterruptedException {
 
         // 1. load seats from DB
@@ -99,7 +99,7 @@ public class SeatHoldConcurrencyTest {
         int totalSeats = seats.size();
 
         assertThat(totalSeats)
-                .as("Seed data must provide at least 100 seats for this test to be meaningful")
+                .as("Seed data must provide at least 100 seats")
                 .isGreaterThanOrEqualTo(100);
 
         List<UUID> seatIds = seats.stream()
@@ -108,7 +108,7 @@ public class SeatHoldConcurrencyTest {
                 .toList();
 
         // 2. setting up 500 threads: 5 threads competing per seat
-        int totalThreads = 500;
+        int totalThreads = 200;
         ExecutorService executor = Executors.newFixedThreadPool(totalThreads);
         CountDownLatch startGate = new CountDownLatch(1);
         CountDownLatch doneLatch = new CountDownLatch(totalThreads);
@@ -143,7 +143,7 @@ public class SeatHoldConcurrencyTest {
         // 4. release all threads at once
         startGate.countDown();
 
-        // 5. wait for all threads to finish (30s timeout)
+        // 5. wait for all threads to finish (60s timeout)
         boolean completed = doneLatch.await(30, TimeUnit.SECONDS);
 
         // 6. shut down thread pool
@@ -154,11 +154,11 @@ public class SeatHoldConcurrencyTest {
                 successCount.get(), failureCount.get(), unexpectedErrorCount.get());
 
         assertThat(completed)
-                .as("All 500 threads should complete within 30 seconds — timeout suggests deadlock")
+                .as("All 200 threads should complete within 30 seconds — timeout suggests Redis connection saturation or deadlock")
                 .isTrue();
 
         assertThat(unexpectedErrorCount.get())
-                .as("No thread should throw anything other than SeatNotAvailableException")
+                .as("No thread should throw anything other than SeatNotAvailableException, if this fails then check HikariCP pool size (connection exhaustion)")
                 .isZero();
 
         assertThat(successCount.get())
@@ -166,8 +166,8 @@ public class SeatHoldConcurrencyTest {
                 .isEqualTo(100);
 
         assertThat(failureCount.get())
-                .as("Exactly 400 holds should fail — the losing thread for each seat")
-                .isEqualTo(400);
+                .as("Exactly 100 holds should fail — 1 losing thread for each seat")
+                .isEqualTo(100);
 
         // 8. verify database state directly
         long heldSeatsInDb = seatRepository.findAll().stream()

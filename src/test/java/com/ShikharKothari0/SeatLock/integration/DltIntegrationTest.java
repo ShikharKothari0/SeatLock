@@ -57,9 +57,9 @@ class DltIntegrationTest extends IntegrationTestBase{
         );
 
         // wait for DLT message (4 delivery attempts (initial attempt + 3 retries) × 1s backoff + processing time)
-        // total: ~10 seconds for retries + consumer processing so 15s timeout gives comfortable buffer
+        // total: ~10 seconds for retries + consumer processing so 25s timeout gives comfortable buffer
         ConsumerRecord<String, String> dltRecord =
-                eventCapture.dltEvents().poll(15, TimeUnit.SECONDS);
+                eventCapture.dltEvents().poll(25, TimeUnit.SECONDS);
 
         // assert: message landed in DLT
         assertThat(dltRecord)

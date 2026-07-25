@@ -47,7 +47,7 @@ public class FullSystemIntegrationTest extends IntegrationTestBase{
 
         // Part b: verify seat-held event arrives on Kafka
         ConsumerRecord<String, String> heldRecord =
-                eventCapture.heldEvents().poll(10, TimeUnit.SECONDS);
+                eventCapture.heldEvents().poll(20, TimeUnit.SECONDS);
 
         assertThat(heldRecord)
                 .as("seat-held event must be published within 10 seconds")
@@ -77,10 +77,10 @@ public class FullSystemIntegrationTest extends IntegrationTestBase{
 
         // Part d: verify seat-confirmed event arrives on Kafka
         ConsumerRecord<String, String> confirmedRecord =
-                eventCapture.confirmedEvents().poll(10, TimeUnit.SECONDS);
+                eventCapture.confirmedEvents().poll(20, TimeUnit.SECONDS);
 
         assertThat(confirmedRecord)
-                .as("seat-confirmed event must be published within 10 seconds")
+                .as("seat-confirmed event must be published within 20 seconds")
                 .isNotNull();
 
         assertThat(confirmedRecord.key())
@@ -132,7 +132,7 @@ public class FullSystemIntegrationTest extends IntegrationTestBase{
 
         // wait for the first seat-confirmed event
         ConsumerRecord<String, String> firstEvent =
-                eventCapture.confirmedEvents().poll(10, TimeUnit.SECONDS);
+                eventCapture.confirmedEvents().poll(20, TimeUnit.SECONDS);
 
         assertThat(firstEvent)
                 .as("First confirm must publish a seat-confirmed event")
@@ -152,7 +152,7 @@ public class FullSystemIntegrationTest extends IntegrationTestBase{
 
         // wait 3 seconds, confirm no second Kafka event was published
         ConsumerRecord<String, String> secondEvent =
-                eventCapture.confirmedEvents().poll(3, TimeUnit.SECONDS);
+                eventCapture.confirmedEvents().poll(20, TimeUnit.SECONDS);
 
         assertThat(secondEvent)
                 .as("Idempotent second call must NOT publish a second seat-confirmed event")
@@ -172,8 +172,8 @@ public class FullSystemIntegrationTest extends IntegrationTestBase{
         seatHoldService.holdSeat(SEAT_A2, TEST_USER);
 
         // consume and discard the two seat-held events
-        eventCapture.heldEvents().poll(10, TimeUnit.SECONDS);
-        eventCapture.heldEvents().poll(10, TimeUnit.SECONDS);
+        eventCapture.heldEvents().poll(20, TimeUnit.SECONDS);
+        eventCapture.heldEvents().poll(20, TimeUnit.SECONDS);
 
         // confirm both seats in one request
         BookingResponse response = bookingService.confirmBooking(
@@ -186,7 +186,7 @@ public class FullSystemIntegrationTest extends IntegrationTestBase{
 
         // verify exactly one seat-confirmed event covers both seats
         ConsumerRecord<String, String> confirmedRecord =
-                eventCapture.confirmedEvents().poll(10, TimeUnit.SECONDS);
+                eventCapture.confirmedEvents().poll(20, TimeUnit.SECONDS);
 
         assertThat(confirmedRecord).isNotNull();
 

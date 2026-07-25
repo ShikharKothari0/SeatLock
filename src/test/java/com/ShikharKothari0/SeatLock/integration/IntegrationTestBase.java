@@ -17,6 +17,9 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
+
+import java.time.Duration;
+import java.util.List;
 import java.util.Set;
 
 @SpringBootTest
@@ -37,7 +40,8 @@ public class IntegrationTestBase {
 
     @Container
     static KafkaContainer kafka =
-            new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.6.0"));
+            new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.6.0"))
+                    .withStartupTimeout(Duration.ofMinutes(2));   // explicit startup timeout
 
     @DynamicPropertySource
     static void overrideProperties(DynamicPropertyRegistry registry) {
@@ -97,11 +101,18 @@ public class IntegrationTestBase {
 
         // delete all bookings
         bookingRepository.deleteAll();
+        for (String pattern : List.of(
+                "seat:lock:*",          // distributed seat hold locks
+                "seats:event:*",        // cache-aside seat listings
+                "seat-cache-lock:*",    // stampede protector locks
+                "ratelimit:hold:*"      // per-user rate limit buckets
+        )) {
 
-        // flush all Redis lock keys
-        Set<String> lockKeys = redisTemplate.keys("seat:lock:*");
-        if (lockKeys != null && !lockKeys.isEmpty()) {
-            redisTemplate.delete(lockKeys);
+            // flush all Redis lock keys
+            Set<String> lockKeys = redisTemplate.keys(pattern);
+            if (lockKeys != null && !lockKeys.isEmpty()) {
+                redisTemplate.delete(lockKeys);
+            }
         }
     }
 }
