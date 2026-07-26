@@ -7,6 +7,9 @@ import com.ShikharKothari0.SeatLock.exception.SeatNotAvailableException;
 import com.ShikharKothari0.SeatLock.kafka.event.SeatHeldEvent;
 import com.ShikharKothari0.SeatLock.kafka.producer.SeatEventProducer;
 import com.ShikharKothari0.SeatLock.repository.SeatRepository;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -24,20 +27,43 @@ public class SeatHoldService {       // A dedicated service that orchestrates bo
     private final SeatEventProducer seatEventProducer;
     private final SeatCacheService seatCacheService;
 
+    private final Counter holdsCreatedCounter;
+    private final Counter holdsRejectedCounter;
+    private final Timer holdLatencyTimer;
+
     public SeatHoldService(
             RedisLockService redisLockService,
             SeatRepository seatRepository,
             SeatEventProducer seatEventProducer,
-            SeatCacheService seatCacheService
+            SeatCacheService seatCacheService,
+            MeterRegistry meterRegistry
     ) {
         this.redisLockService = redisLockService;
         this.seatRepository = seatRepository;
         this.seatEventProducer = seatEventProducer;
         this.seatCacheService = seatCacheService;
+
+        this.holdsCreatedCounter = Counter.builder("seatlock.holds.created")
+                .description("Number of seat holds successfully created")
+                .tag("application", "SeatLock")
+                .register(meterRegistry);
+
+        this.holdsRejectedCounter = Counter.builder("seatlock.holds.rejected")
+                .description("Number of seat hold attempts rejected (seat unavailable or already held)")
+                .tag("application", "SeatLock")
+                .register(meterRegistry);
+
+        this.holdLatencyTimer = Timer.builder("seatlock.holds.latency")
+                .description("End-to-end latency of the holdSeat operation")
+                .tag("application", "SeatLock")
+                .publishPercentiles(0.5, 0.95, 0.99)    // p50, p95, p99
+                .publishPercentileHistogram()
+                .register(meterRegistry);
     }
 
     @Transactional
     public void holdSeat(UUID seatId, UUID userId) {
+        holdLatencyTimer.record(() -> {
         // Step 1: acquire Redis lock atomically via Lua script
         boolean acquired = redisLockService.acquireSeatHold(
                 seatId.toString(),
@@ -46,6 +72,7 @@ public class SeatHoldService {       // A dedicated service that orchestrates bo
         );
 
         if (!acquired) {
+            holdsRejectedCounter.increment();
             throw new SeatNotAvailableException("Seat " + seatId + " is already held");
         }
 
@@ -55,6 +82,7 @@ public class SeatHoldService {       // A dedicated service that orchestrates bo
                     .orElseThrow(() -> new ResourceNotFoundException("Seat not found: " + seatId));
 
             if (seat.getStatus() != SeatStatus.AVAILABLE) {
+                holdsRejectedCounter.increment();
                 throw new SeatNotAvailableException("Seat " + seatId + " is not available");
             }
 
@@ -65,6 +93,9 @@ public class SeatHoldService {       // A dedicated service that orchestrates bo
             // invalidate cache after the Postgres write commits
             UUID eventId = seat.getEvent().getId();
             seatCacheService.evictCache(eventId);
+
+            holdsCreatedCounter.increment();
+            log.debug("Hold created - seatId={} userId={}", seatId, userId);
             log.debug("Cache invalidated after hold — eventId={} seatId={}", eventId, seatId);
 
             seatEventProducer.publishSeatHeld(new SeatHeldEvent(
@@ -80,5 +111,6 @@ public class SeatHoldService {       // A dedicated service that orchestrates bo
             redisLockService.releaseLock("seat:lock:" + seatId);
             throw e;
         }
+    });
     }
 }

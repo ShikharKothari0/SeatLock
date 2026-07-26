@@ -5,6 +5,8 @@ import com.ShikharKothari0.SeatLock.entity.SeatStatus;
 import com.ShikharKothari0.SeatLock.kafka.event.SeatReleasedEvent;
 import com.ShikharKothari0.SeatLock.kafka.producer.SeatEventProducer;
 import com.ShikharKothari0.SeatLock.repository.SeatRepository;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -24,17 +26,24 @@ public class HoldExpiryService {
     private final RedisLockService redisLockService;
     private final SeatEventProducer seatEventProducer;
     private final SeatCacheService seatCacheService;
+    private final Counter holdsExpiredCounter;
 
     public HoldExpiryService(
             SeatRepository seatRepository,
             RedisLockService redisLockService,
             SeatEventProducer seatEventProducer,
-            SeatCacheService seatCacheService
+            SeatCacheService seatCacheService,
+            MeterRegistry meterRegistry
     ) {
         this.seatRepository = seatRepository;
         this.redisLockService = redisLockService;
         this.seatEventProducer = seatEventProducer;
         this.seatCacheService = seatCacheService;
+
+        this.holdsExpiredCounter = Counter.builder("seatlock.holds.expired")
+                .description("Number of seat holds released by the expiry job")
+                .tag("application", "SeatLock")
+                .register(meterRegistry);
     }
 
     @Scheduled(fixedDelay = 30000)  // runs the job again 30 seconds after the jobs previous execution
@@ -68,6 +77,7 @@ public class HoldExpiryService {
             }
 
             seat.setStatus(SeatStatus.AVAILABLE);
+            holdsExpiredCounter.increment();
             seat.setHoldExpiresAt(null);
 
             affectedEventIds.add(seat.getEvent().getId());

@@ -11,6 +11,8 @@ import com.ShikharKothari0.SeatLock.kafka.producer.SeatEventProducer;
 import com.ShikharKothari0.SeatLock.repository.AppUserRepository;
 import com.ShikharKothari0.SeatLock.repository.BookingRepository;
 import com.ShikharKothari0.SeatLock.repository.SeatRepository;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -29,6 +31,7 @@ public class BookingService {
     private final RedisLockService redisLockService;
     private final SeatEventProducer seatEventProducer;
     private final SeatCacheService seatCacheService;
+    private final Counter bookingsConfirmedCounter;
 
     public BookingService(
             AppUserRepository appUserRepository,
@@ -36,7 +39,8 @@ public class BookingService {
             BookingRepository bookingRepository,
             RedisLockService redisLockService,
             SeatEventProducer seatEventProducer,
-            SeatCacheService seatCacheService
+            SeatCacheService seatCacheService,
+            MeterRegistry meterRegistry
     ) {
         this.appUserRepository = appUserRepository;
         this.seatRepository = seatRepository;
@@ -44,6 +48,11 @@ public class BookingService {
         this.redisLockService = redisLockService;
         this.seatEventProducer = seatEventProducer;
         this.seatCacheService = seatCacheService;
+
+        this.bookingsConfirmedCounter = Counter.builder("seatlock.bookings.confirmed")
+                .description("Number of bookings successfully confirmed")
+                .tag("application", "SeatLock")
+                .register(meterRegistry);
     }
 
     @Transactional
@@ -113,6 +122,10 @@ public class BookingService {
             seat.setHoldExpiresAt(null);
         }
         seatRepository.saveAll(seats);
+
+        bookingsConfirmedCounter.increment();
+        log.info("Booking confirmed: bookingId={} userId={} seatCount={}",
+                booking.getId(), request.userId(), seats.size());
 
         // invalidate cache after seat status writes commit
         seatCacheService.evictCache(event.getId());
