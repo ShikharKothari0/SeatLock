@@ -31,3 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Gatling-Results###
+D:\Project\SeatLock\target\gatling-results
