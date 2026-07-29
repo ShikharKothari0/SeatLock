@@ -43,7 +43,7 @@ public class SeatHoldService {       // A dedicated service that orchestrates bo
         this.seatEventProducer = seatEventProducer;
         this.seatCacheService = seatCacheService;
 
-        this.holdsCreatedCounter = Counter.builder("seatlock.holds.created")
+        this.holdsCreatedCounter = Counter.builder("seatlock.holds.success")
                 .description("Number of seat holds successfully created")
                 .tag("application", "SeatLock")
                 .register(meterRegistry);
