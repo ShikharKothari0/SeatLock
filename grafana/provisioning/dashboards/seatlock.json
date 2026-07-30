@@ -24,7 +24,6 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 1,
   "links": [],
   "panels": [
     {
@@ -1521,7 +1520,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1578,7 +1578,8 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "green"
+                      "color": "green",
+                      "value": null
                     },
                     {
                       "color": "orange",
@@ -1607,6 +1608,21 @@
                 "id": "color",
                 "value": {
                   "fixedColor": "#767679",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Pool Size"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
                   "mode": "fixed"
                 }
               }
@@ -1665,7 +1681,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum(\r\n    hikaricp_connections{\r\n        application=\"SeatLock\",\r\n        state=~\"active|idle\"\r\n    }\r\n)",
+          "expr": "hikaricp_connections_max",
           "hide": false,
           "instant": false,
           "legendFormat": "Pool Size",
@@ -1695,6 +1711,6 @@
   "timezone": "browser",
   "title": "SeatLock - Distributed Ticket Booking System",
   "uid": "eftjlfso4ufwga",
-  "version": 6,
+  "version": 1,
   "weekStart": ""
 }

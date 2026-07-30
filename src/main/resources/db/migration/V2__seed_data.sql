@@ -12,25 +12,19 @@ VALUES (
            NOW() + INTERVAL '7 days'
        );
 
--- First 3 Seats are hardcoded with stable UUIDs for testing purposes
-INSERT INTO seat (id, event_id, seat_number, section, status, version)
-VALUES
-    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', 'A1', 'Section A', 'AVAILABLE', 0),
-    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '22222222-2222-2222-2222-222222222222', 'A2', 'Section A', 'AVAILABLE', 0),
-    ('cccccccc-cccc-cccc-cccc-cccccccccccc', '22222222-2222-2222-2222-222222222222', 'A3', 'Section A', 'AVAILABLE', 0),
-    ('dddddddd-dddd-dddd-dddd-dddddddddddd', '22222222-2222-2222-2222-222222222222', 'A4', 'Section A', 'AVAILABLE', 0),
-    ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '22222222-2222-2222-2222-222222222222', 'A5', 'Section A', 'AVAILABLE', 0),
-    ('ffffffff-ffff-ffff-ffff-ffffffffffff', '22222222-2222-2222-2222-222222222222', 'A6', 'Section A', 'AVAILABLE', 0);
-
--- Generate rest 94 seats (A7–A100) for this event, all AVAILABLE with random UUIDs
+-- Generate 100 seats with deterministic UUIDs
 INSERT INTO seat (id, event_id, seat_number, section, status, version)
 SELECT
-    gen_random_uuid(),
+    (
+        LPAD(gs::text, 8, '0') ||
+        '-0000-0000-0000-000000000000'
+        )::uuid,
     '22222222-2222-2222-2222-222222222222',
-    'A' || generate_series(7, 100),
+    'A' || gs,
     'Section A',
     'AVAILABLE',
-    0;
+    0
+FROM generate_series(1, 100) AS gs;
 
 INSERT INTO app_user (id, email, display_name)
 VALUES (
