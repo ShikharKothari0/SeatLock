@@ -53,8 +53,8 @@ public class BookingIdempotencyTest {
     @Autowired private StringRedisTemplate redisTemplate;
 
     private static final UUID TEST_USER_ID = UUID.fromString("33333333-3333-3333-3333-333333333333");
-    private static final UUID SEAT_A1 = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
-    private static final UUID SEAT_B1 = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+    private static final UUID SEAT_A1 = UUID.fromString("00000001-0000-0000-0000-000000000000");
+    private static final UUID SEAT_B1 = UUID.fromString("00000002-0000-0000-0000-000000000000");
 
     @BeforeEach
     void resetState() {

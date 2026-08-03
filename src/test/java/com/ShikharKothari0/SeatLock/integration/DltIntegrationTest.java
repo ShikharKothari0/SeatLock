@@ -45,14 +45,14 @@ class DltIntegrationTest extends IntegrationTestBase{
                 "bookingId": "00000000-0000-0000-0000-000000000099",
                 "userId": "33333333-3333-3333-3333-333333333333",
                 "eventId": "22222222-2222-2222-2222-222222222222",
-                "seatIds": ["aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"],
+                "seatIds": ["00000001-0000-0000-0000-000000000000"],
                 "confirmedAt": "2026-07-01T13:00:00Z"
             }
             """;
 
         kafkaTemplate.send(
                 "seat-confirmed",
-                "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                "00000001-0000-0000-0000-000000000000",
                 payload
         );
 

@@ -78,11 +78,11 @@ public class IntegrationTestBase {
     // stable test UUIDs matching V2__seed_data.sql
 
     protected static final java.util.UUID SEAT_A1 =
-            java.util.UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+            java.util.UUID.fromString("00000001-0000-0000-0000-000000000000");
     protected static final java.util.UUID SEAT_A2 =
-            java.util.UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+            java.util.UUID.fromString("00000002-0000-0000-0000-000000000000");
     protected static final java.util.UUID SEAT_A3 =
-            java.util.UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccccccc");
+            java.util.UUID.fromString("00000003-0000-0000-0000-000000000000");
     protected static final java.util.UUID TEST_USER =
             java.util.UUID.fromString("33333333-3333-3333-3333-333333333333");
 

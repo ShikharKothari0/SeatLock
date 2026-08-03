@@ -73,14 +73,14 @@ class CircuitBreakerIntegrationTest {
     // stable test seat UUIDs
     // A4 and A5: used in Step 2 (failure loop) — will be HELD via fallback
     private static final UUID SEAT_A4 =
-            UUID.fromString("dddddddd-dddd-dddd-dddd-dddddddddddd");
+            UUID.fromString("00000004-0000-0000-0000-000000000000");
 
     private static final UUID SEAT_A5 =
-            UUID.fromString("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee");
+            UUID.fromString("00000005-0000-0000-0000-000000000000");
 
     // A6: used ONLY in Step 8 (recovery proof) and is never touched in Step 2
     private static final UUID SEAT_A6 =
-            UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff");
+            UUID.fromString("00000006-0000-0000-0000-000000000000");
 
     private static final UUID TEST_USER =
             UUID.fromString("33333333-3333-3333-3333-333333333333");
@@ -286,7 +286,7 @@ class CircuitBreakerIntegrationTest {
         // proving the Redis-backed code path is active (not the DB fallback)
         var seatA6 = seatRepository.findById(SEAT_A6)
                 .orElseThrow(() -> new IllegalStateException(
-                        "Seat A6 (ffffffff-...) not found — check V2__seed_data.sql includes this UUID"
+                        "Seat A6 (000006-...) not found — check V2__seed_data.sql includes this UUID"
                 ));
 
         assertThat(seatA6.getStatus())

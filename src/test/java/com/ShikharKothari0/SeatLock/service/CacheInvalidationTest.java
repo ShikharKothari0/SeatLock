@@ -48,7 +48,7 @@ public class CacheInvalidationTest {
     @Autowired private StringRedisTemplate redisTemplate;
 
     private static final UUID SEAT_A1 =
-            UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+            UUID.fromString("00000001-0000-0000-0000-000000000000");
     private static final UUID EVENT_ID =
             UUID.fromString("22222222-2222-2222-2222-222222222222");
     private static final UUID TEST_USER =
@@ -125,7 +125,7 @@ public class CacheInvalidationTest {
 
     @Test
     void differentSeatsAreUnaffectedByOtherSeatsInvalidation() {
-        UUID seatB = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        UUID seatB = UUID.fromString("00000002-0000-0000-0000-000000000000");
 
         // populate cache
         seatService.getSeats(EVENT_ID, null);

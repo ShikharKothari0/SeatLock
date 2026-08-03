@@ -1,0 +1,161 @@
+@import "tailwindcss";
+
+@theme {
+  /* Colors - SeatLock brand palette */
+  --color-brand-primary: #6366f1;     /* indigo-500 */
+  --color-brand-primary-hover: #4f46e5; /* indigo-600 */
+  --color-brand-primary-light: #e0e7ff; /* indigo-100 */
+
+  --color-brand-secondary: #14b8a6;   /* teal-500 */
+  --color-brand-secondary-hover: #0d9488; /* teal-600 */
+
+  /* Surface colors for dark mode first design */
+  --color-surface-base: #0f172a;      /* slate-950 */
+  --color-surface-raised: #1e293b;    /* slate-800 */
+  --color-surface-overlay: #334155;   /* slate-700 */
+  --color-surface-border: #475569;    /* slate-600 */
+
+  /* Status colors */
+  --color-status-success: #22c55e;    /* green-500 */
+  --color-status-success-bg: #166534; /* green-900 */
+  --color-status-pending: #f59e0b;    /* amber-500 */
+  --color-status-pending-bg: #92400e; /* amber-900 */
+  --color-status-failure: #ef4444;    /* red-500 */
+  --color-status-failure-bg: #991b1b; /* red-900 */
+  --color-status-info: #3b82f6;       /* blue-500 */
+  --color-status-info-bg: #1e3a8a;    /* blue-900 */
+
+  /* Fonts */
+  --font-sans: "Outfit", system-ui, sans-serif;
+  --font-heading: "Outfit", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Spacing scale */
+  --spacing-0: 0;
+  --spacing-1: 0.25rem;  /* 4px */
+  --spacing-2: 0.5rem;   /* 8px */
+  --spacing-3: 0.75rem;  /* 12px */
+  --spacing-4: 1rem;     /* 16px */
+  --spacing-5: 1.25rem;  /* 20px */
+  --spacing-6: 1.5rem;   /* 24px */
+  --spacing-8: 2rem;     /* 32px */
+  --spacing-10: 2.5rem;  /* 40px */
+  --spacing-12: 3rem;    /* 48px */
+  --spacing-16: 4rem;    /* 64px */
+
+  /* Border radius */
+  --radius-sm: 0.25rem;   /* 4px */
+  --radius-md: 0.375rem;  /* 6px */
+  --radius-lg: 0.5rem;    /* 8px */
+  --radius-xl: 0.75rem;   /* 12px */
+  --radius-2xl: 1rem;     /* 16px */
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-normal: 200ms ease;
+  --transition-slow: 300ms ease;
+
+  /* Z-index */
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-fixed: 300;
+  --z-modal-backdrop: 400;
+  --z-modal: 500;
+  --z-popover: 600;
+  --z-tooltip: 700;
+}
+
+/* Google Fonts will be loaded via index.html */
+
+/* Base styles */
+:root {
+  color-scheme: dark;
+}
+
+html {
+  font-family: var(--font-sans);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--color-surface-base);
+  color: #f8fafc; /* slate-50 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Utility classes for status badges */
+.status-badge {
+  @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-mono uppercase tracking-widest font-medium;
+}
+
+.status-success {
+  @apply bg-green-900/30 text-green-400 border border-green-700/50;
+}
+
+.status-pending {
+  @apply bg-amber-900/30 text-amber-400 border border-amber-700/50;
+}
+
+.status-failure {
+  @apply bg-red-900/30 text-red-400 border border-red-700/50;
+}
+
+.status-info {
+  @apply bg-blue-900/30 text-blue-400 border border-blue-700/50;
+}
+
+/* Pulse animation for active statuses */
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 2s ease-in-out infinite;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-surface-base);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-surface-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-surface-overlay);
+}
+
+/* Focus styles */
+:focus-visible {
+  outline: 2px solid var(--color-brand-primary);
+  outline-offset: 2px;
+}
+
+/* Selection */
+::selection {
+  background-color: var(--color-brand-primary);
+  color: white;
+}
