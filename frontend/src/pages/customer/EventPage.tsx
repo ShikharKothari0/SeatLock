@@ -16,7 +16,7 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 export function EventPage() {
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
-  const { userId, selectedSeatIds, heldSeatIds, holdExpiresAt, generateIdempotencyKey, setHeld, clearHold } =
+  const { userId, selectedSeatIds, heldSeatIds, holdExpiresAt, generateIdempotencyKey, _setHeld, clearHold } =
     useSessionStore();
   const [selectedSeats, setSelectedSeats] = useState<SeatResponse[]>([]);
   const [holdError, setHoldError] = useState<string | null>(null);
@@ -54,14 +54,11 @@ export function EventPage() {
 
   // Seat Hold Mutation
   const holdSeatMutation = useSeatHold({
-    onSuccess: (response, variables) => {
+    onSuccess: (_response, _variables) => {
       // The hook already calls setHeld and emits dev event
-      setIsHolding(false);
-      setHoldError(null);
-      // Navigate to checkout
-      navigate('/checkout');
+      // Do NOT navigate here - handleProceedToCheckout will navigate after all holds succeed
     },
-    onError: (err, variables) => {
+    onError: (err, _variables) => {
       setIsHolding(false);
       const status = (err as Error & { status?: number }).status;
       if (status === 409) {
@@ -88,7 +85,8 @@ export function EventPage() {
       for (const seatId of selectedSeatIds) {
         await holdSeatMutation.mutateAsync({ seatId, userId });
       }
-      // If all holds succeed, navigation happens in onSuccess
+      // All holds succeeded - navigate to checkout
+      navigate('/checkout');
     } catch (err) {
       // Error handled in onError callback
       console.error('Hold failed:', err);
@@ -145,11 +143,7 @@ export function EventPage() {
   }
 
   // Sort seats by seat number for consistent rendering
-  const sortedSeats = [...seats].sort((a, b) => {
-    const aNum = parseInt(a.seatNumber.match(/(\d+)$/)?.[1] || '0', 10);
-    const bNum = parseInt(b.seatNumber.match(/(\d+)$/)?.[1] || '0', 10);
-    return aNum - bNum;
-  });
+  // SeatGrid handles its own internal sorting, so we don't need to sort here
 
   return (
     <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">

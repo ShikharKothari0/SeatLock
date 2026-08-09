@@ -13,6 +13,7 @@ import { CircuitBreakersPage } from './pages/admin/CircuitBreakersPage';
 import { KafkaPage } from './pages/admin/KafkaPage';
 import { SystemHealthPage } from './pages/admin/SystemHealthPage';
 import { Navbar } from './components/common/Navbar';
+import { DeveloperConsole } from './components/developer/DeveloperConsole';
 
 function App() {
   useTheme();
@@ -39,6 +40,7 @@ function App() {
           <Route path="/admin/health" element={<SystemHealthPage />} />
         </Routes>
       </main>
+      <DeveloperConsole />
     </div>
   );
 }

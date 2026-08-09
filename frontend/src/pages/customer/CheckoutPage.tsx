@@ -1,19 +1,15 @@
 // CheckoutPage - Review selected seats and proceed to payment
 
-import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '../../lib/api';
-import type { SeatResponse } from '../../types/api';
 import { useSessionStore } from '../../store/sessionStore';
 import { HoldTimer } from '../../components/customer/HoldTimer';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { StatusBadge } from '../../components/common/StatusBadge';
-import { PRICE_PER_SEAT, PLATFORM_FEE, TAXES, HOLD_DURATION_MS } from '../../lib/constants';
+import { PRICE_PER_SEAT, PLATFORM_FEE, TAXES } from '../../lib/constants';
 
 export function CheckoutPage() {
   const navigate = useNavigate();
-  const { userId, selectedSeatIds, heldSeatIds, holdExpiresAt, idempotencyKey, generateIdempotencyKey } =
+  const { selectedSeatIds, heldSeatIds, holdExpiresAt, idempotencyKey, generateIdempotencyKey } =
     useSessionStore();
 
   // If no seats selected, go back to event page

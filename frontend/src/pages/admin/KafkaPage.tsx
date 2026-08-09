@@ -1,15 +1,13 @@
 // KafkaPage - Kafka metrics page (placeholder)
 
-import { Navbar } from '../../components/common/Navbar';
-import { StatusBadge } from '../../components/common/StatusBadge';
-import { AlertCircle, Info } from 'lucide-react';
+import { AdminLayout } from '../../components/admin/AdminLayout';
+import { Info } from 'lucide-react';
 
 export function KafkaPage() {
   return (
-    <div className="flex flex-col gap-6">
-      <Navbar />
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-6">
+    <AdminLayout>
+      <div className="space-y-8">
+        <div>
           <h1 className="text-3xl font-bold text-white mb-2">Kafka Metrics</h1>
           <p className="text-slate-400">Kafka topic and consumer metrics</p>
         </div>
@@ -43,7 +41,7 @@ export function KafkaPage() {
             </div>
           </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </AdminLayout>
   );
 }

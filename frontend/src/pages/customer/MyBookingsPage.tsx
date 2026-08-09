@@ -7,7 +7,7 @@ import { Ticket, Calendar, MapPin, ArrowRight } from 'lucide-react';
 
 export function MyBookingsPage() {
   const navigate = useNavigate();
-  const { lastBookingId, reset } = useSessionStore();
+  const { lastBookingId } = useSessionStore();
 
   // In a real app, this would come from an API
   const bookings = lastBookingId ? [

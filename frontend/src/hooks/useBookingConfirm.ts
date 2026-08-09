@@ -27,7 +27,7 @@ interface UseBookingConfirmOptions {
  * - Returns the error for UI to handle (including 409 for expired holds)
  */
 export function useBookingConfirm(options: UseBookingConfirmOptions = {}) {
-  const { setBookingConfirmed, idempotencyKey, userId } = useSessionStore();
+  const { setBookingConfirmed, idempotencyKey, _userId } = useSessionStore();
   const { emitEvent } = useDeveloperModeStore();
 
   return useMutation<BookingResponse, Error & { status?: number; apiError?: ApiError }, BookingConfirmRequest>({

@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../lib/api';
-import type { SeatResponse, SeatStatus } from '../../types/api';
+import type { SeatResponse } from '../../types/api';
 import { SEAT_POLL_INTERVAL_MS, ROW_LETTERS } from '../../lib/constants';
 import { SeatCell } from './SeatCell';
 import { LoadingSpinner } from '../common/LoadingSpinner';
@@ -14,13 +14,6 @@ interface SeatGridProps {
   heldSeatIds: string[];
   onSeatToggle: (seatId: string) => void;
 }
-
-const LEGEND_ITEMS = [
-  { status: 'AVAILABLE' as SeatStatus, label: 'Available', color: 'status-success' },
-  { status: 'HELD' as SeatStatus, label: 'Held', color: 'status-pending' },
-  { status: 'CONFIRMED' as SeatStatus, label: 'Sold', color: 'status-failure' },
-  { status: 'SELECTED', label: 'Selected', color: 'bg-violet-500' },
-] as const;
 
 export function SeatGrid({ eventId, selectedSeatIds, heldSeatIds, onSeatToggle }: SeatGridProps) {
   const { data: seats, isLoading, error, refetch } = useQuery<SeatResponse[], Error>({

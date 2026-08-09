@@ -1,18 +1,17 @@
 // PaymentPage - Payment selection and booking confirmation
 
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { useSessionStore } from '../../store/sessionStore';
 import { useBookingConfirm } from '../../hooks/useBookingConfirm';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
-import { StatusBadge } from '../../components/common/StatusBadge';
 import { HoldTimer } from '../../components/customer/HoldTimer';
 import { PRICE_PER_SEAT, PLATFORM_FEE, TAXES } from '../../lib/constants';
 import { CreditCard, Smartphone, Building2 } from 'lucide-react';
 
 export function PaymentPage() {
   const navigate = useNavigate();
-  const { userId, heldSeatIds, holdExpiresAt, idempotencyKey, setBookingConfirmed, clearHold, lastBookingId } =
+  const { userId, heldSeatIds, holdExpiresAt, idempotencyKey, setBookingConfirmed, clearHold } =
     useSessionStore();
 
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'upi' | 'card' | 'netbanking'>('upi');

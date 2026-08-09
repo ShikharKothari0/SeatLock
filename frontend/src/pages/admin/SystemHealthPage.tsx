@@ -3,12 +3,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../lib/api';
 import type { SystemHealthResponse } from '../../types/metrics';
-import { Navbar } from '../../components/common/Navbar';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { formatBytes, formatPercent } from '../../lib/formatters';
 import { HEALTH_POLL_INTERVAL_MS } from '../../lib/constants';
 import { Server, Database, Cpu, MemoryStick } from 'lucide-react';
+import { AdminLayout } from '../../components/admin/AdminLayout';
 
 export function SystemHealthPage() {
   const { data: health, isLoading, error, refetch } = useQuery<SystemHealthResponse, Error>({
@@ -22,33 +22,36 @@ export function SystemHealthPage() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <LoadingSpinner size="lg" ariaLabel="Loading system health" />
-        <p className="text-slate-400 text-sm">Loading system health...</p>
-      </div>
+      <AdminLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+          <LoadingSpinner size="lg" ariaLabel="Loading system health" />
+          <p className="text-slate-400 text-sm">Loading system health...</p>
+        </div>
+      </AdminLayout>
     );
   }
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center">
-        <StatusBadge status="FAILED" label="Failed to load system health" />
-        <p className="text-slate-400 text-sm max-w-xs">{error.message}</p>
-        <button
-          onClick={() => refetch()}
-          className="mt-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors"
-        >
-          Retry
-        </button>
-      </div>
+      <AdminLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center">
+          <StatusBadge status="FAILED" label="Failed to load system health" />
+          <p className="text-slate-400 text-sm max-w-xs">{error.message}</p>
+          <button
+            onClick={() => refetch()}
+            className="mt-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </AdminLayout>
     );
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <Navbar />
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-6 flex items-center justify-between">
+    <AdminLayout>
+      <div className="space-y-8">
+        <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-white mb-2">System Health</h1>
             <p className="text-slate-400">Application and infrastructure health metrics</p>
@@ -59,7 +62,6 @@ export function SystemHealthPage() {
           />
         </div>
 
-        {/* Core Health Metrics */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {health && (
             <>
@@ -110,7 +112,6 @@ export function SystemHealthPage() {
           )}
         </div>
 
-        {/* Circuit Breakers */}
         {health?.circuitBreakers && health.circuitBreakers.length > 0 && (
           <div className="bg-slate-800/50 border border-slate-600/50 rounded-xl p-5">
             <h3 className="text-lg font-semibold text-white mb-4">Circuit Breakers</h3>
@@ -137,7 +138,6 @@ export function SystemHealthPage() {
           </div>
         )}
 
-        {/* Raw Data */}
         <details className="bg-slate-800/50 border border-slate-600/50 rounded-xl p-5">
           <summary className="font-mono text-sm text-slate-400 cursor-pointer">
             View Raw Health Data
@@ -146,7 +146,7 @@ export function SystemHealthPage() {
             {JSON.stringify(health, null, 2)}
           </pre>
         </details>
-      </main>
-    </div>
+      </div>
+    </AdminLayout>
   );
 }

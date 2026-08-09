@@ -3,36 +3,39 @@
 import { useRedisMetrics } from '../../hooks/useMetrics';
 import { MetricCard } from '../../components/common/MetricCard';
 import { formatBytes, formatCount } from '../../lib/formatters';
-import { Navbar } from '../../components/common/Navbar';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { StatusBadge } from '../../components/common/StatusBadge';
+import { AdminLayout } from '../../components/admin/AdminLayout';
 
 export function RedisPage() {
   const { data: redis, isLoading, error } = useRedisMetrics();
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <LoadingSpinner size="lg" ariaLabel="Loading Redis metrics" />
-        <p className="text-slate-400 text-sm">Loading Redis metrics...</p>
-      </div>
+      <AdminLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+          <LoadingSpinner size="lg" ariaLabel="Loading Redis metrics" />
+          <p className="text-slate-400 text-sm">Loading Redis metrics...</p>
+        </div>
+      </AdminLayout>
     );
   }
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center">
-        <StatusBadge status="FAILED" label="Failed to load Redis metrics" />
-        <p className="text-slate-400 text-sm max-w-xs">{error.message}</p>
-      </div>
+      <AdminLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center">
+          <StatusBadge status="FAILED" label="Failed to load Redis metrics" />
+          <p className="text-slate-400 text-sm max-w-xs">{error.message}</p>
+        </div>
+      </AdminLayout>
     );
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <Navbar />
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-6">
+    <AdminLayout>
+      <div className="space-y-8">
+        <div>
           <h1 className="text-3xl font-bold text-white mb-2">Redis Metrics</h1>
           <p className="text-slate-400">Redis connection and memory statistics</p>
         </div>
@@ -87,7 +90,7 @@ export function RedisPage() {
             </div>
           </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </AdminLayout>
   );
 }

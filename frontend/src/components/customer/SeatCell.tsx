@@ -1,6 +1,6 @@
 // SeatCell - Individual seat visualization with status-based styling
 
-import type { SeatResponse, SeatStatus } from '../../types/api';
+import type { SeatResponse } from '../../types/api';
 import { ROW_LETTERS } from '../../lib/constants';
 
 interface SeatCellProps {

@@ -34,12 +34,12 @@ export function useMetricStream(): UseMetricStreamReturn {
       try {
         const data = JSON.parse(event.data) as MetricStreamSnapshot;
         setSnapshot(data);
-      } catch (err) {
-        console.error('Failed to parse metrics SSE event:', err);
+      } catch (_err) {
+        console.error('Failed to parse metrics SSE event:', _err);
       }
     });
 
-    es.onerror = (err) => {
+    es.onerror = (_err) => {
       setConnected(false);
       setError(new Error('SSE connection error'));
       // EventSource auto-reconnects natively

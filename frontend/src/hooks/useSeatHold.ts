@@ -2,7 +2,7 @@
 
 import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '../lib/api';
-import type { HoldRequest, HoldResponse } from '../types/api';
+import type { HoldResponse } from '../types/api';
 import { HOLD_DURATION_MS } from '../lib/constants';
 import { useSessionStore } from '../store/sessionStore';
 import { useDeveloperModeStore } from '../store/developerModeStore';
@@ -18,7 +18,7 @@ interface UseSeatHoldOptions {
  * Custom mutation hook for holding a seat via POST /api/seats/{seatId}/hold
  *
  * On success:
- * - Calls sessionStore.setHeld() with the seat ID and calculated expiry
+ * - Calls sessionStore.setHeld() with the seat ID and calculated expiry (APPENDS to existing holds)
  * - Emits a DevEvent of type 'SEAT_HOLD' to developerModeStore
  *
  * On error:
@@ -38,8 +38,10 @@ export function useSeatHold(options: UseSeatHoldOptions = {}) {
       // Calculate expiry timestamp: now + 5 minutes
       const expiresAt = Date.now() + HOLD_DURATION_MS;
 
-      // Update session store with held seat and expiry
-      setHeld([response.seatId], expiresAt);
+      // Update session store with held seat and expiry - APPEND to existing holds
+      const { heldSeatIds } = useSessionStore.getState();
+      const newHeldSeatIds = [...heldSeatIds, response.seatId];
+      setHeld(newHeldSeatIds, expiresAt);
 
       // Emit developer mode event for SEAT_HOLD
       emitEvent({
