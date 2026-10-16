@@ -1,30 +1,17 @@
-// Navbar - Sticky header with SeatLock logo, ThemeToggle, and DEV mode badge
-
-import { useDeveloperModeStore } from '../../store/developerModeStore';
+import { Link } from 'react-router-dom';
 import { ThemeToggle } from './ThemeToggle';
 import { DeveloperToggle } from '../developer/DeveloperToggle';
+import { useSessionStore } from '../../store/sessionStore';
 
 export function Navbar() {
-  const { _enabled } = useDeveloperModeStore();
-
-  return (
-    <header className="sticky top-0 z-[200] bg-slate-950/80 backdrop-blur-sm border-b border-slate-700/50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Left: SeatLock Logo */}
-          <div className="flex items-center gap-2">
-            <span className="text-xl font-bold text-white">
-              Seat<span className="font-extrabold text-indigo-400">Lock</span>
-            </span>
-          </div>
-
-          {/* Right: ThemeToggle + DEV badge */}
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
-            <DeveloperToggle />
-          </div>
-        </div>
+  const { pendingConfirmation, heldSeatIds } = useSessionStore();
+  return <header className="sticky top-0 z-[200] bg-white/80 dark:bg-slate-950/80 backdrop-blur-sm border-b border-slate-300/50 dark:border-slate-700/50">
+    <nav aria-label="Main navigation" className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <Link to="/" className="text-xl font-bold text-slate-900 dark:text-white">Seat<span className="text-indigo-700 dark:text-indigo-400">Lock</span></Link>
+      <div className="flex flex-wrap items-center gap-4 text-sm text-slate-700 dark:text-slate-300">
+        {(pendingConfirmation || heldSeatIds.length > 0) && <Link to={pendingConfirmation ? '/payment' : '/checkout'}>Resume reservation</Link>}
+        <Link to="/my-bookings">My Bookings</Link><Link to="/admin">Admin</Link><ThemeToggle /><DeveloperToggle />
       </div>
-    </header>
-  );
+    </nav>
+  </header>;
 }

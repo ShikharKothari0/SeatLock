@@ -47,4 +47,19 @@ public class Seat {
 
     @Column(name = "hold_expires_at")
     private Instant holdExpiresAt;
+
+    @Column(name = "held_by")
+    private UUID heldBy;
+
+    @Column(name = "hold_token")
+    private UUID holdToken;
+
+    public String lockValue() {
+        return heldBy == null ? null : holdToken == null ? heldBy.toString() : heldBy + ":" + holdToken;
+    }
+
+    public Seat(UUID id, Event event, String seatNumber, String section, SeatStatus status,
+                Booking booking, Long version, Instant holdExpiresAt) {
+        this(id, event, seatNumber, section, status, booking, version, holdExpiresAt, null, null);
+    }
 }

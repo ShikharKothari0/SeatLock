@@ -17,11 +17,13 @@ public class SeatConfirmedConsumer {
     private static final Logger log = LoggerFactory.getLogger(SeatConfirmedConsumer.class);
 
     private final ObjectMapper objectMapper;
+    private final com.ShikharKothari0.SeatLock.service.ConsumerInbox inbox;
     @Setter
     private volatile boolean simulateFailure = false;       // It is a purely testing tool. to be toggled only during testing.
 
-    public SeatConfirmedConsumer(ObjectMapper objectMapper) {
+    public SeatConfirmedConsumer(ObjectMapper objectMapper, com.ShikharKothari0.SeatLock.service.ConsumerInbox inbox) {
         this.objectMapper = objectMapper;
+        this.inbox = inbox;
     }
 
     @KafkaListener(
@@ -29,6 +31,7 @@ public class SeatConfirmedConsumer {
             groupId = KafkaTopicConfig.GROUP_NOTIFICATION,
             containerFactory = "kafkaListenerContainerFactory"
     )
+    @org.springframework.transaction.annotation.Transactional
     public void onSeatConfirmed(
             @Payload String message,
             @Header(KafkaHeaders.RECEIVED_PARTITION) int partition,
@@ -45,6 +48,7 @@ public class SeatConfirmedConsumer {
 
         try {
             SeatConfirmedEvent event = objectMapper.readValue(message, SeatConfirmedEvent.class);
+            if (!inbox.firstDelivery("booking-notification", event.bookingId().toString())) return;
 
             log.info(
                     "[NOTIFICATION] Booking confirmed — bookingId={} userId={} eventId={} seats={} " +
@@ -66,10 +70,8 @@ public class SeatConfirmedConsumer {
                             "at partition={} offset={}: {}",
                     partition, offset, e.getMessage(), e
             );
-            // intentionally not re-throwing — a failed notification
-            // should not cause the consumer to retry and create duplicate
-            // notification attempts. Log it, alert (in a real system via
-            // a metrics counter), and move on.
+            // Roll back the inbox entry as well, allowing a later delivery to retry.
+            throw new IllegalStateException("Confirmation consumer failed", e);
         }
     }
 

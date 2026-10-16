@@ -90,10 +90,10 @@ class CacheStampedeProtector {
     }
 
     private void releaseLockIfOwned(String lockKey, String lockValue) {
-        String currentValue = redisTemplate.opsForValue().get(lockKey);
-        if (lockValue.equals(currentValue)) {
-            redisTemplate.delete(lockKey);
-        }
-        // if currentValue doesn't match, the lock already expired and was possibly acquired by someone else, so don't delete their lock
+        try {
+            redisTemplate.execute(org.springframework.data.redis.core.script.RedisScript.of(
+                    "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end", Long.class),
+                    java.util.List.of(lockKey), lockValue);
+        } catch (RuntimeException unavailable) { log.debug("Cache loader lock will expire by TTL"); }
     }
 }

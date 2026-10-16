@@ -10,7 +10,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useRef, useEffect, useState } from 'react';
 
 export function DashboardPage() {
-  const { data: overview, isLoading: overviewLoading, error: overviewError } = useOverviewMetrics();
+  const { data: overview, dataUpdatedAt, isLoading: overviewLoading, error: overviewError } = useOverviewMetrics();
   const { data: circuitBreakers, isLoading: cbLoading } = useCircuitBreakers();
 
   const [trendData, setTrendData] = useState<Array<{ time: string; bookings: number }>>([]);
@@ -27,14 +27,14 @@ export function DashboardPage() {
         return updated;
       });
     }
-  }, [overview]);
+  }, [overview, dataUpdatedAt]);
 
   if (overviewLoading || cbLoading) {
     return (
       <AdminLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
           <LoadingSpinner size="lg" ariaLabel="Loading dashboard" />
-          <p className="text-slate-400 text-sm">Loading dashboard...</p>
+          <p className="text-slate-600 dark:text-slate-400 text-sm">Loading dashboard...</p>
         </div>
       </AdminLayout>
     );
@@ -45,7 +45,7 @@ export function DashboardPage() {
       <AdminLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center">
           <StatusBadge status="FAILED" label="Failed to load dashboard" />
-          <p className="text-slate-400 text-sm max-w-xs">
+          <p className="text-slate-600 dark:text-slate-400 text-sm max-w-xs">
             {overviewError.message}
           </p>
         </div>
@@ -57,43 +57,43 @@ export function DashboardPage() {
     <AdminLayout>
       <div className="space-y-8">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Admin Dashboard</h1>
-          <p className="text-slate-400">System overview and key metrics</p>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Admin Dashboard</h1>
+          <p className="text-slate-600 dark:text-slate-400">System overview and key metrics</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {overview && (
             <>
               <MetricCard
-                label="Total Bookings"
+                label="Bookings since restart"
                 value={overview.totalBookings.toLocaleString()}
-                trend={overview.bookingsPerMinute}
+
                 unit="total"
               />
               <MetricCard
                 label="Hold Success Rate"
                 value={formatPercent(overview.holdSuccessRate)}
-                trend={overview.holdSuccessRate > 95 ? 0.5 : overview.holdSuccessRate > 90 ? 0 : -1}
-                unit="%"
+
+
               />
               <MetricCard
                 label="Holds Expired"
                 value={overview.holdsExpired.toLocaleString()}
-                trend={overview.holdsExpired > 100 ? -1 : 0}
+
                 unit="total"
               />
               <MetricCard
                 label="Avg Hold Latency"
                 value={formatMs(overview.avgHoldLatencyMs)}
-                trend={overview.avgHoldLatencyMs < 200 ? 1 : overview.avgHoldLatencyMs < 500 ? 0 : -1}
-                unit="ms"
+
+
               />
             </>
           )}
         </div>
 
-        <div className="bg-slate-800/50 border border-slate-600/50 rounded-xl p-5">
-          <h3 className="text-lg font-semibold text-white mb-4">Booking Trend (Live)</h3>
+        <div className="bg-slate-100/50 dark:bg-slate-800/50 border border-slate-300/50 dark:border-slate-600/50 rounded-xl p-5">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Bookings since restart (sampled)</h3>
           <div className="h-64" ref={chartRef}>
             {trendData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -127,7 +127,7 @@ export function DashboardPage() {
                       boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
                     }}
                     labelStyle={{ color: '#f8fafc' }}
-                    formatter={(value: number) => [value.toLocaleString(), 'Bookings']}
+                    formatter={value => [Number(value ?? 0).toLocaleString(), 'Bookings']}
                   />
                   <Area
                     type="monotone"
@@ -147,24 +147,24 @@ export function DashboardPage() {
           </div>
         </div>
 
-        <div className="bg-slate-800/50 border border-slate-600/50 rounded-xl p-5">
-          <h3 className="text-lg font-semibold text-white mb-4">Circuit Breaker Status</h3>
+        <div className="bg-slate-100/50 dark:bg-slate-800/50 border border-slate-300/50 dark:border-slate-600/50 rounded-xl p-5">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Circuit Breaker Status</h3>
           <div className="flex flex-wrap gap-4">
             {circuitBreakers?.map((cb) => (
               <div
                 key={cb.name}
-                className="flex items-center gap-3 px-4 py-3 bg-slate-900/50 rounded-lg border border-slate-700/50 min-w-[240px]"
+                className="flex items-center gap-3 px-4 py-3 bg-slate-50/50 dark:bg-slate-900/50 rounded-lg border border-slate-300/50 dark:border-slate-700/50 min-w-[240px]"
               >
                 <StatusBadge
                   status={cb.state}
                   label={cb.name}
                 />
-                <div className="text-sm text-slate-400">
-                  Failure Rate: <span className="font-mono text-white">{formatPercent(cb.failureRate)}</span>
+                <div className="text-sm text-slate-600 dark:text-slate-400">
+                  Failure Rate: <span className="font-mono text-slate-900 dark:text-white">{formatPercent(cb.failureRate)}</span>
                 </div>
-                <div className="text-sm text-slate-400">
-                  Failed: <span className="font-mono text-red-400">{cb.failedCalls}</span> |
-                  Success: <span className="font-mono text-green-400">{cb.successfulCalls}</span>
+                <div className="text-sm text-slate-600 dark:text-slate-400">
+                  Failed: <span className="font-mono text-red-700 dark:text-red-400">{cb.failedCalls}</span> |
+                  Success: <span className="font-mono text-green-700 dark:text-green-400">{cb.successfulCalls}</span>
                 </div>
               </div>
             ))}

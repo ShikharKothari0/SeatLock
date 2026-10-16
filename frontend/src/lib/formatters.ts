@@ -61,7 +61,7 @@ export function formatCount(n: number): string {
  * @returns Formatted string (e.g., "92.1%")
  */
 export function formatPercent(n: number): string {
-  return `${n.toFixed(1)}%`;
+  return !Number.isFinite(n) || n < 0 ? 'Not available' : `${n.toFixed(1)}%`;
 }
 
 /**

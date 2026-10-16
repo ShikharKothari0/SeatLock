@@ -103,19 +103,9 @@ public class SeatReleasedConsumer {
         }
 
         if (seat.getStatus() == SeatStatus.HELD) {
-            // unexpected: seat is still HELD in Postgres even though a
-            // released event was published. HoldExpiryService should have
-            // caught this — but it didn't. Force the correction here.
-            log.warn(
-                    "[RECONCILIATION] Seat {} is still HELD in DB despite release event (reason={}). " +
-                            "Forcing status to AVAILABLE.",
-                    seatId, reason
-            );
-            seat.setStatus(SeatStatus.AVAILABLE);
-            seat.setHoldExpiresAt(null);
-            seat.setBooking(null);
-            seatRepository.save(seat);
-            log.info("[RECONCILIATION] Seat {} forcefully released to AVAILABLE", seatId);
+            // Release events are observations, not commands. This may be a newer hold.
+            // The expiry job owns expiration; an event without a generation token cannot clear it.
+            log.info("[RECONCILIATION] Seat {} is currently HELD; leaving current reservation intact", seatId);
         }
     }
 }

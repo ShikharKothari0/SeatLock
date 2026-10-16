@@ -25,6 +25,7 @@ public class SeatCacheService {
 
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     // counters for cache observability
     private final Counter hitCounter;
@@ -33,10 +34,12 @@ public class SeatCacheService {
     public SeatCacheService(
             StringRedisTemplate redisTemplate,
             ObjectMapper objectMapper,
+            org.springframework.jdbc.core.JdbcTemplate jdbc,
             MeterRegistry meterRegistry
     ) {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
+        this.jdbc = jdbc;
 
         this.hitCounter = Counter.builder("seatlock.cache.hits")
                 .description("Number of Redis cache hits for seat listings")
@@ -54,10 +57,20 @@ public class SeatCacheService {
         return CACHE_KEY_PREFIX + eventId;
     }
 
+    public long revision(UUID eventId) {
+        return jdbc.queryForObject("SELECT COALESCE(MAX(seat_revision),0) FROM event WHERE id=?", Long.class, eventId);
+    }
+    @CircuitBreaker(name = "redisCache", fallbackMethod = "getCachedSeatsFallback")
+    public Optional<List<SeatResponse>> getCachedSeats(UUID eventId) { return getCachedSeats(eventId, revision(eventId)); }
+    public Optional<List<SeatResponse>> getCachedSeatsFallback(UUID eventId, Throwable ex) { return Optional.empty(); }
+    @CircuitBreaker(name = "redisCache", fallbackMethod = "cacheSeatsFallback")
+    public void cacheSeats(UUID eventId, List<SeatResponse> seats) { cacheSeats(eventId, revision(eventId), seats); }
+    public void cacheSeatsFallback(UUID eventId, List<SeatResponse> seats, Throwable ex) { }
+
     // read from cache
     @CircuitBreaker(name = "redisCache", fallbackMethod = "getCachedSeatsFallback")
-    public Optional<List<SeatResponse>> getCachedSeats(UUID eventId) {
-        String key = cacheKey(eventId);
+    public Optional<List<SeatResponse>> getCachedSeats(UUID eventId, long revision) {
+        String key = cacheKey(eventId) + ":v" + revision;
         String json = redisTemplate.opsForValue().get(key);
 
         if (json == null) {
@@ -85,7 +98,7 @@ public class SeatCacheService {
     }
 
     public Optional<List<SeatResponse>> getCachedSeatsFallback(
-            UUID eventId, Throwable ex
+            UUID eventId, long revision, Throwable ex
     ) {
         log.warn(
                 "redisCache circuit breaker OPEN — " +
@@ -98,8 +111,8 @@ public class SeatCacheService {
 
     // write to cache
     @CircuitBreaker(name = "redisCache", fallbackMethod = "cacheSeatsFallback")
-    public void cacheSeats(UUID eventId, List<SeatResponse> seats) {
-        String key = cacheKey(eventId);
+    public void cacheSeats(UUID eventId, long revision, List<SeatResponse> seats) {
+        String key = cacheKey(eventId) + ":v" + revision;
         try {
             String json = objectMapper.writeValueAsString(seats);
             redisTemplate.opsForValue().set(key, json, CACHE_TTL);
@@ -113,7 +126,7 @@ public class SeatCacheService {
     }
 
     public void cacheSeatsFallback(
-            UUID eventId, List<SeatResponse> seats, Throwable ex
+            UUID eventId, long revision, List<SeatResponse> seats, Throwable ex
     ) {
         log.warn(
                 "redisCache circuit breaker OPEN — " +

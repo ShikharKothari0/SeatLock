@@ -19,6 +19,10 @@ import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import jakarta.annotation.PreDestroy;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -59,8 +63,19 @@ public class AdminController {
     @GetMapping(value = "/metrics/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamMetrics() {
         SseEmitter emitter = new SseEmitter(300_000L); // 5 minute timeout
+        AtomicBoolean closed = new AtomicBoolean();
+        AtomicReference<ScheduledFuture<?>> subscription = new AtomicReference<>();
+        Runnable cancel = () -> {
+            closed.set(true);
+            ScheduledFuture<?> future = subscription.get();
+            if (future != null) future.cancel(false);
+        };
+        emitter.onCompletion(cancel);
+        emitter.onTimeout(cancel);
+        emitter.onError(error -> cancel.run());
 
         Runnable task = () -> {
+            if (closed.get()) return;
             try {
                 MetricStreamSnapshot snapshot = adminMetricsService.getMetricStreamSnapshot();
                 emitter.send(SseEmitter.event()
@@ -68,16 +83,24 @@ public class AdminController {
                         .data(snapshot)
                         .build());
             } catch (IOException e) {
+                cancel.run();
+                emitter.complete();
+            } catch (RuntimeException e) {
+                cancel.run();
                 emitter.completeWithError(e);
             }
         };
 
-        scheduler.scheduleAtFixedRate(task, 0, 3, TimeUnit.SECONDS);
-
-        emitter.onCompletion(() -> scheduler.shutdown());
-        emitter.onTimeout(() -> scheduler.shutdown());
-        emitter.onError(e -> scheduler.shutdown());
+        ScheduledFuture<?> future = scheduler.scheduleAtFixedRate(task, 0, 3, TimeUnit.SECONDS);
+        subscription.set(future);
+        // Completion may race with scheduling the first snapshot.
+        if (closed.get()) future.cancel(false);
 
         return emitter;
+    }
+
+    @PreDestroy
+    public void shutdown() {
+        scheduler.shutdownNow();
     }
 }

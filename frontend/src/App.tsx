@@ -1,28 +1,30 @@
-import { Routes, Route } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
+import { Routes, Route, Link } from 'react-router-dom';
 import { useTheme } from './hooks/useTheme';
-import { HomePage } from './pages/customer/HomePage';
-import { EventPage } from './pages/customer/EventPage';
-import { CheckoutPage } from './pages/customer/CheckoutPage';
-import { PaymentPage } from './pages/customer/PaymentPage';
-import { BookingConfirmedPage } from './pages/customer/BookingConfirmedPage';
-import { MyBookingsPage } from './pages/customer/MyBookingsPage';
-import { DashboardPage } from './pages/admin/DashboardPage';
-import { RedisPage } from './pages/admin/RedisPage';
-import { CachePage } from './pages/admin/CachePage';
-import { CircuitBreakersPage } from './pages/admin/CircuitBreakersPage';
-import { KafkaPage } from './pages/admin/KafkaPage';
-import { SystemHealthPage } from './pages/admin/SystemHealthPage';
+const HomePage = lazy(() => import('./pages/customer/HomePage').then(module => ({ default: module.HomePage })));
+const EventPage = lazy(() => import('./pages/customer/EventPage').then(module => ({ default: module.EventPage })));
+const CheckoutPage = lazy(() => import('./pages/customer/CheckoutPage').then(module => ({ default: module.CheckoutPage })));
+const PaymentPage = lazy(() => import('./pages/customer/PaymentPage').then(module => ({ default: module.PaymentPage })));
+const BookingConfirmedPage = lazy(() => import('./pages/customer/BookingConfirmedPage').then(module => ({ default: module.BookingConfirmedPage })));
+const MyBookingsPage = lazy(() => import('./pages/customer/MyBookingsPage').then(module => ({ default: module.MyBookingsPage })));
+const DashboardPage = lazy(() => import('./pages/admin/DashboardPage').then(module => ({ default: module.DashboardPage })));
+const RedisPage = lazy(() => import('./pages/admin/RedisPage').then(module => ({ default: module.RedisPage })));
+const CachePage = lazy(() => import('./pages/admin/CachePage').then(module => ({ default: module.CachePage })));
+const CircuitBreakersPage = lazy(() => import('./pages/admin/CircuitBreakersPage').then(module => ({ default: module.CircuitBreakersPage })));
+const KafkaPage = lazy(() => import('./pages/admin/KafkaPage').then(module => ({ default: module.KafkaPage })));
+const SystemHealthPage = lazy(() => import('./pages/admin/SystemHealthPage').then(module => ({ default: module.SystemHealthPage })));
 import { Navbar } from './components/common/Navbar';
+import { ReservationRecovery } from './components/customer/ReservationRecovery';
 import { DeveloperConsole } from './components/developer/DeveloperConsole';
 
 function App() {
   useTheme();
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950">
+    <div className="min-h-screen flex flex-col bg-white dark:bg-slate-950">
       <Navbar />
-      <main className="flex-1">
-        <Routes>
+      <div className="flex-1">
+        <ReservationRecovery><Suspense fallback={<p className="p-8 text-slate-500" role="status">Loading page…</p>}><Routes>
           {/* Customer Portal Routes */}
           <Route path="/" element={<HomePage />} />
           <Route path="/events/:eventId" element={<EventPage />} />
@@ -38,8 +40,9 @@ function App() {
           <Route path="/admin/circuit-breakers" element={<CircuitBreakersPage />} />
           <Route path="/admin/kafka" element={<KafkaPage />} />
           <Route path="/admin/health" element={<SystemHealthPage />} />
-        </Routes>
-      </main>
+        <Route path="*" element={<main className="p-8 text-slate-700 dark:text-slate-300"><h1>Page not found</h1><Link to="/">Browse events</Link></main>} />
+        </Routes></Suspense></ReservationRecovery>
+      </div>
       <DeveloperConsole />
     </div>
   );

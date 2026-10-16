@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
+@SpringBootTest(properties = {"spring.kafka.listener.auto-startup=false", "spring.kafka.admin.auto-create=false", "spring.kafka.bootstrap-servers=localhost:1"})
 @Testcontainers
 @ActiveProfiles("test")
 class CacheStampedeProtectionTest {
@@ -49,6 +49,7 @@ class CacheStampedeProtectionTest {
     }
 
     @Autowired private SeatService seatService;
+    @Autowired private SeatCacheService cacheService;
     @Autowired private StringRedisTemplate redisTemplate;
 
     private static final UUID EVENT_ID =
@@ -107,11 +108,11 @@ class CacheStampedeProtectionTest {
         // happened for this event, meaning exactly one thread queried Postgres
         String lockKey = "seat-cache-lock:" + EVENT_ID;
         log.info("PROTECTED: {} concurrent requests completed. " +
-                "Check Hibernate SQL logs — expect close to 1 SELECT query, " +
+                "Check Hibernate SQL logs — expect close to 1 seat-list SELECT, plus revision lookups, " +
                 "not {}.", completedRequests.get(), concurrentRequests);
 
         // the cache must be populated after all requests complete
-        assertThat(redisTemplate.hasKey("seats:event:" + EVENT_ID))
+        assertThat(redisTemplate.hasKey("seats:event:" + EVENT_ID + ":v" + cacheService.revision(EVENT_ID)))
                 .as("Cache must be populated after stampede-protected load")
                 .isTrue();
     }

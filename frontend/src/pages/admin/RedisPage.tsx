@@ -15,7 +15,7 @@ export function RedisPage() {
       <AdminLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
           <LoadingSpinner size="lg" ariaLabel="Loading Redis metrics" />
-          <p className="text-slate-400 text-sm">Loading Redis metrics...</p>
+          <p className="text-slate-600 dark:text-slate-400 text-sm">Loading Redis metrics...</p>
         </div>
       </AdminLayout>
     );
@@ -26,7 +26,7 @@ export function RedisPage() {
       <AdminLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center">
           <StatusBadge status="FAILED" label="Failed to load Redis metrics" />
-          <p className="text-slate-400 text-sm max-w-xs">{error.message}</p>
+          <p className="text-slate-600 dark:text-slate-400 text-sm max-w-xs">{error.message}</p>
         </div>
       </AdminLayout>
     );
@@ -36,8 +36,8 @@ export function RedisPage() {
     <AdminLayout>
       <div className="space-y-8">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Redis Metrics</h1>
-          <p className="text-slate-400">Redis connection and memory statistics</p>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Redis Metrics</h1>
+          <p className="text-slate-600 dark:text-slate-400">Redis connection and memory statistics</p>
         </div>
 
         {/* Connection Status */}
@@ -55,10 +55,10 @@ export function RedisPage() {
               <MetricCard
                 label="Memory Used"
                 value={formatBytes(redis.memoryUsedBytes)}
-                unit="bytes"
+
               />
               <MetricCard
-                label="Total Keys"
+                label="Selected key prefixes"
                 value={formatCount(redis.totalKeys)}
                 unit="keys"
               />
@@ -77,16 +77,16 @@ export function RedisPage() {
         </div>
 
         {/* Additional Details */}
-        <div className="bg-slate-800/50 border border-slate-600/50 rounded-xl p-5">
-          <h3 className="text-lg font-semibold text-white mb-4">Details</h3>
+        <div className="bg-slate-100/50 dark:bg-slate-800/50 border border-slate-300/50 dark:border-slate-600/50 rounded-xl p-5">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Details</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <p className="text-slate-400 text-sm">Connected Clients</p>
-              <p className="font-mono text-2xl text-white">{redis?.connectedClients ?? '—'}</p>
+              <p className="text-slate-600 dark:text-slate-400 text-sm">Connected Clients</p>
+              <p className="font-mono text-2xl text-slate-900 dark:text-white">{redis?.connectedClients ?? '—'}</p>
             </div>
             <div>
-              <p className="text-slate-400 text-sm">Active Seat Locks</p>
-              <p className="font-mono text-2xl text-white">{redis?.activeLocks ?? '—'}</p>
+              <p className="text-slate-600 dark:text-slate-400 text-sm">Active Seat Locks</p>
+              <p className="font-mono text-2xl text-slate-900 dark:text-white">{redis?.activeLocks ?? '—'}</p>
             </div>
           </div>
         </div>

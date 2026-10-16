@@ -8,6 +8,7 @@ interface SeatCellProps {
   isSelected: boolean;
   isHeld: boolean;
   onToggle: () => void;
+  disabled?: boolean;
 }
 
 function getSeatRow(seatNumber: string): string {
@@ -26,7 +27,7 @@ function getSeatCol(seatNumber: string): string {
   return String(colIndex);
 }
 
-export function SeatCell({ seat, isSelected, isHeld, onToggle }: SeatCellProps) {
+export function SeatCell({ seat, isSelected, isHeld, onToggle, disabled = false }: SeatCellProps) {
   const row = getSeatRow(seat.seatNumber);
   const col = getSeatCol(seat.seatNumber);
 
@@ -61,7 +62,7 @@ export function SeatCell({ seat, isSelected, isHeld, onToggle }: SeatCellProps) 
       // Available: green filled
       statusClasses = 'bg-green-500 hover:bg-green-400 hover:scale-110';
     }
-    tooltip = `Seat ${row}${col} - Available`;
+    tooltip = `Seat ${seat.seatNumber} - ${isSelected ? 'Selected' : 'Available'}`;
     isInteractive = true;
   }
 
@@ -69,7 +70,8 @@ export function SeatCell({ seat, isSelected, isHeld, onToggle }: SeatCellProps) 
     <button
       type="button"
       onClick={isInteractive ? onToggle : undefined}
-      disabled={!isInteractive}
+      disabled={disabled || !isInteractive}
+      aria-pressed={isSelected}
       className={`${baseClasses} ${statusClasses}`}
       title={tooltip}
       aria-label={tooltip}
@@ -78,7 +80,7 @@ export function SeatCell({ seat, isSelected, isHeld, onToggle }: SeatCellProps) 
       data-seat-row={row}
       data-seat-col={col}
     >
-      <span className="text-[10px] font-mono font-bold text-white drop-shadow">
+      <span className="text-[10px] font-mono font-bold text-slate-900 dark:text-white drop-shadow">
         {col}
       </span>
     </button>

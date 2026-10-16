@@ -8,7 +8,7 @@ import type {
   RedisMetricsResponse,
   CircuitBreakerMetricsResponse,
 } from '../types/metrics';
-import { METRICS_POLL_INTERVAL_MS } from '../lib/constants';
+import { METRICS_POLL_INTERVAL_MS, HEALTH_POLL_INTERVAL_MS } from '../lib/constants';
 
 /**
  * Custom hook for polling overview metrics from /api/admin/metrics/overview
@@ -75,7 +75,7 @@ export function useCircuitBreakers() {
  * Polls every 10 seconds as specified in FRONTEND-INTEGRATION-GUIDE.md
  */
 export function useSystemHealth() {
-  const { HEALTH_POLL_INTERVAL_MS } = require('../lib/constants');
+
 
   return useQuery<import('../types/metrics').SystemHealthResponse, Error>({
     queryKey: ['admin', 'health'],

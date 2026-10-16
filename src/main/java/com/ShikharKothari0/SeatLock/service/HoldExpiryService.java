@@ -25,7 +25,7 @@ public class HoldExpiryService {
     private final SeatRepository seatRepository;
     private final RedisLockService redisLockService;
     private final SeatEventProducer seatEventProducer;
-    private final SeatCacheService seatCacheService;
+    private final TransactionEffects effects;
     private final Counter holdsExpiredCounter;
 
     public HoldExpiryService(
@@ -33,12 +33,13 @@ public class HoldExpiryService {
             RedisLockService redisLockService,
             SeatEventProducer seatEventProducer,
             SeatCacheService seatCacheService,
+            TransactionEffects effects,
             MeterRegistry meterRegistry
     ) {
         this.seatRepository = seatRepository;
         this.redisLockService = redisLockService;
         this.seatEventProducer = seatEventProducer;
-        this.seatCacheService = seatCacheService;
+        this.effects = effects;
 
         this.holdsExpiredCounter = Counter.builder("seatlock.holds.expired")
                 .description("Number of seat holds released by the expiry job")
@@ -64,21 +65,12 @@ public class HoldExpiryService {
         Set<UUID> affectedEventIds = new HashSet<>();
 
         for (Seat seat : expiredSeats) {
-            String redisKey = "seat:lock:" + seat.getId();
-
-            // clean up Redis key if it somehow still exists (edge case)
-            String lockOwner = redisLockService.getLockOwner(redisKey);
-            if (lockOwner != null) {
-                log.warn(
-                        "Redis key {} still exists during expiry cleanup — releasing manually",
-                        redisKey
-                );
-                redisLockService.releaseLock(redisKey);
-            }
-
+            effects.releaseAfterCommit(seat.getId(), seat.lockValue());
             seat.setStatus(SeatStatus.AVAILABLE);
-            holdsExpiredCounter.increment();
+            effects.afterCommit(holdsExpiredCounter::increment);
             seat.setHoldExpiresAt(null);
+            seat.setHeldBy(null);
+            seat.setHoldToken(null);
 
             affectedEventIds.add(seat.getEvent().getId());
 
@@ -94,8 +86,8 @@ public class HoldExpiryService {
         seatRepository.saveAll(expiredSeats);
 
         // invalidate cache once per distinct event, after all writes commit
-        for (UUID eventId : affectedEventIds) {
-            seatCacheService.evictCache(eventId);
+        for (UUID eventId : affectedEventIds.stream().sorted().toList()) {
+            effects.changed(eventId);
         }
         log.debug("Cache invalidated for {} distinct events after expiry batch", affectedEventIds.size());
 

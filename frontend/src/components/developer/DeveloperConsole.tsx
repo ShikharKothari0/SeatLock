@@ -33,11 +33,11 @@ export function DeveloperConsole() {
           style={{ backgroundColor: 'var(--color-surface-overlay)' }}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-3 border-b border-slate-700/50 sticky top-0 bg-slate-800/95 backdrop-blur-sm z-10">
-            <h3 className="font-mono text-xs font-semibold text-white uppercase tracking-wider">Developer Console</h3>
+          <div className="flex items-center justify-between p-3 border-b border-slate-300/50 dark:border-slate-700/50 sticky top-0 bg-slate-100/95 dark:bg-slate-800/95 backdrop-blur-sm z-10">
+            <h3 className="font-mono text-xs font-semibold text-slate-900 dark:text-white uppercase tracking-wider">Developer Console</h3>
             <button
               onClick={toggle}
-              className="p-1.5 text-slate-400 hover:text-white transition-colors"
+              className="p-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
               aria-label="Close developer console"
             >
               <X className="w-4 h-4" />
@@ -45,11 +45,11 @@ export function DeveloperConsole() {
           </div>
 
           {/* ON/OFF Toggle */}
-          <div className="p-3 border-b border-slate-700/50">
+          <div className="p-3 border-b border-slate-300/50 dark:border-slate-700/50">
             <DeveloperToggle />
           </div>
 
-          {/* Widgets - Latest Event Data */}
+          <p className="px-3 pt-3 text-xs text-slate-600 dark:text-slate-400">Client-observed API responses. Redis, database and cache internals are not traced; Kafka delivery is unverified.</p>
           <div className="flex-1 overflow-y-auto p-3 space-y-3">
             <RedisLockWidget event={latestEvent} />
             <DatabaseWidget event={latestEvent} />
@@ -59,7 +59,7 @@ export function DeveloperConsole() {
           </div>
 
           {/* Event Timeline */}
-          <div className="p-3 border-t border-slate-700/50">
+          <div className="p-3 border-t border-slate-300/50 dark:border-slate-700/50">
             <EventTimeline />
           </div>
         </motion.div>

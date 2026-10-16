@@ -26,8 +26,9 @@ public class SeatService {
     }
 
     public List<SeatResponse> getSeats(UUID eventId, SeatStatus status) {
+        long revision = seatCacheService.revision(eventId);
         // Step 1: try cache directly (fast path, no lock overhead)
-        Optional<List<SeatResponse>> cached = seatCacheService.getCachedSeats(eventId);
+        Optional<List<SeatResponse>> cached = seatCacheService.getCachedSeats(eventId, revision);
 
         if (cached.isPresent()) {
             log.debug("Serving seats from cache — eventId={} totalCached={} filter={}",
@@ -42,9 +43,9 @@ public class SeatService {
 
         List<SeatResponse> response = stampedeProtector.loadWithStampedeProtection(
                 eventId,
-                () -> seatCacheService.getCachedSeats(eventId).orElse(null),       // cacheReader
+                () -> seatCacheService.getCachedSeats(eventId, revision).orElse(null),       // cacheReader
                 () -> loadFromDatabase(eventId),                                         // databaseLoader
-                seats -> seatCacheService.cacheSeats(eventId, seats)   // cacheWriter
+                seats -> seatCacheService.cacheSeats(eventId, revision, seats)   // cacheWriter
         );
 
         // Step 3: apply status filter

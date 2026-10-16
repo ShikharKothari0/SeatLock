@@ -29,7 +29,7 @@ import java.time.Duration;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
-@SpringBootTest
+@SpringBootTest(properties = {"spring.kafka.listener.auto-startup=false", "spring.kafka.admin.auto-create=false", "spring.data.redis.timeout=500ms", "spring.data.redis.connect-timeout=500ms"})
 @Testcontainers
 @ActiveProfiles("test")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
@@ -67,7 +67,7 @@ class CircuitBreakerIntegrationTest {
         registry.add("spring.data.redis.host", redis::getHost);
         registry.add("spring.data.redis.port", () -> 16379);    // Fixed port
         // no Kafka needed for circuit breaker testing, so point at nowhere valid
-        registry.add("spring.kafka.bootstrap-servers", () -> "localhost:9092");
+        registry.add("spring.kafka.bootstrap-servers", () -> "localhost:1");
     }
 
     // stable test seat UUIDs
@@ -119,7 +119,7 @@ class CircuitBreakerIntegrationTest {
     }
 
     @Test
-    void circuitBreakerOpensFallsBackToDbAndRecoversWhenRedisReturns()
+    void circuitBreakerOpensRejectsHoldsAndRecoversWhenRedisReturns()
         throws InterruptedException
     {
         CircuitBreaker cb = circuitBreakerRegistry.circuitBreaker("redisLock");
@@ -146,13 +146,7 @@ class CircuitBreakerIntegrationTest {
         redis.stop();
 
         // Step 2: fire enough requests to open the circuit
-        // need minimum-number-of-calls=5 with failure-rate >= 50%
-        // Alternate A4/A5 so each seat's first attempt genuinely tries Redis
-        // (which fails with a connection error, counted by the circuit breaker)
-        // before the DB status check can short-circuit things.
-        // Pattern per seat:
-        //   attempt 1 → Redis fails → acquireSeatHoldFallback(true) → DB holds seat
-        //   attempt 2 → circuit OPEN → fallback immediately → DB rejects (seat HELD)
+        // Failed attempts leave both seats available; repeated failures open the circuit.
         List<UUID> failureSeats = List.of(SEAT_A4, SEAT_A5);
         int requestsFired = 0;
         for (int i = 0; i < 10; i++) {
@@ -160,7 +154,7 @@ class CircuitBreakerIntegrationTest {
             try {
                 seatHoldService.holdSeat(seatToUse, TEST_USER);
             } catch (Exception ignored) {
-                // SeatNotAvailableException is expected on repeat attempts
+                // Redis unavailability rejects the hold without committing database state.
             }
                 requestsFired++;
         }
@@ -184,14 +178,14 @@ class CircuitBreakerIntegrationTest {
 
         log.info("Circuit breaker state after Redis outage: {}", cb.getState());
 
-        // A4 must be HELD via DB fallback (first loop iteration held it)
-        // acquireSeatHoldFallback returns true → SeatHoldService proceeds to DB
-        // This proves the fallback path works and the users were not blocked
+        // A4 stays AVAILABLE because hold creation fails closed.
+        // No Redis lock means no database hold is committed.
+        // This prevents successful-looking holds that cannot be confirmed.
         var seatA4 = seatRepository.findById(SEAT_A4);
         assertThat(seatA4).isPresent();
         assertThat(seatA4.get().getStatus())
-                .as("Seat A4 must be HELD via DB fallback even when Redis is down, this proves the fallback is working correctly")
-                .isEqualTo(SeatStatus.HELD);
+                .as("Redis outage must not leave an unconfirmable database-only hold")
+                .isEqualTo(SeatStatus.AVAILABLE);
 
         // Step 4: restart Redis
         log.info("Restarting Redis container...");
@@ -220,12 +214,7 @@ class CircuitBreakerIntegrationTest {
 
         log.info("Redis confirmed ready for connections");
 
-        // Step 5: Manually drive the circuit breaker to HALF-OPEN and then CLOSED
-        // We can't rely on the automatic wait duration timer because:
-        // 1. @DynamicPropertySource doesn't override Resilience4j registry config
-        // 2. application.properties has wait-duration=30s which would make this test take 30+ seconds in the recovery phase alone
-        // Instead we manually transition states and fire real probe calls, which is actually a more thorough test.
-        // It proves the circuit correctly responds to real Redis success signals, not just a timer
+        // Drive HALF_OPEN explicitly to test recovery from real successful Redis probes.
 
         // Manually Transitioning from OPEN to HALF-OPEN
         log.info("Manually transitioning circuit breaker: {} → HALF_OPEN",
@@ -243,9 +232,9 @@ class CircuitBreakerIntegrationTest {
 
         log.info("Need {} successful probe calls to close circuit breaker", permittedCalls);
 
-        // find seats that are still AVAILABLE (not A4/A5 which were held in step 2)
+        // Reserve A6 for the final proof and use other available seats for recovery probes.
         var availableSeats = seatRepository.findAll().stream()
-                .filter(s -> s.getStatus() == SeatStatus.AVAILABLE)
+                .filter(s -> s.getStatus() == SeatStatus.AVAILABLE && !s.getId().equals(SEAT_A6))
                 .limit((long) permittedCalls + 3) // a few extras in case some are rejected
                 .toList();
 
@@ -305,7 +294,7 @@ class CircuitBreakerIntegrationTest {
         assertThat(lockOwner)
                 .as("After recovery, Redis lock key must exist for seat A6; proves Redis-backed hold path is active again, not DB fallback." +
                         "DB fallback skips Redis write. real Redis hold writes this key")
-                .isEqualTo(TEST_USER.toString());
+                .startsWith(TEST_USER.toString() + ":");
 
         log.info("CircuitBreakerIntegrationTest PASSED");
         log.info("Lifecycle proven: CLOSED → OPEN (Redis down, Fallback active) → HALF_OPEN(manual) → CLOSED (Redis recovered), {} probe successes",

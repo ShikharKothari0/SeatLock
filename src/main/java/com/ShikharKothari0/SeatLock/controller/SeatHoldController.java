@@ -7,7 +7,8 @@ import com.ShikharKothari0.SeatLock.service.SeatHoldService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import java.util.Map;
+import com.ShikharKothari0.SeatLock.dto.response.ReservationResponse;
+import com.ShikharKothari0.SeatLock.service.ReservationQueryService;
 import java.util.UUID;
 
 @RestController
@@ -15,14 +16,17 @@ import java.util.UUID;
 public class SeatHoldController {
     private final SeatHoldService seatHoldService;
     private final RateLimiterService rateLimiterService;
+    private final ReservationQueryService reservations;
 
-    public SeatHoldController(SeatHoldService seatHoldService,  RateLimiterService rateLimiterService) {
+    public SeatHoldController(SeatHoldService seatHoldService, RateLimiterService rateLimiterService,
+            ReservationQueryService reservations) {
         this.seatHoldService = seatHoldService;
         this.rateLimiterService = rateLimiterService;
+        this.reservations = reservations;
     }
 
     @PostMapping("/{seatId}/hold")
-    public ResponseEntity<Map<String, Object>> holdSeat(
+    public ResponseEntity<ReservationResponse.Hold> holdSeat(
             @PathVariable UUID seatId,
             @Valid @RequestBody SeatHoldRequest request
     ) {
@@ -34,9 +38,15 @@ public class SeatHoldController {
         }
 
         seatHoldService.holdSeat(seatId, request.userId());
-        return ResponseEntity.ok(Map.of(
-                "status", "HELD",
-                "seatId", seatId
-        ));
+        return ResponseEntity.ok(reservations.hold(seatId, request.userId()));
+    }
+
+    @GetMapping("/holds")
+    public ReservationResponse.ActiveHolds activeHolds(@RequestParam UUID userId) { return reservations.active(userId); }
+
+    @DeleteMapping("/{seatId}/hold")
+    public ResponseEntity<Void> release(@PathVariable UUID seatId, @RequestParam UUID userId) {
+        seatHoldService.release(seatId, userId);
+        return ResponseEntity.noContent().build();
     }
 }

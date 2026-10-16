@@ -26,7 +26,14 @@ export interface SeatResponse {
 export interface HoldResponse {
   status: 'HELD';
   seatId: string;
+  expiresAt: string;
+  serverTime: string;
+  event: EventResponse;
+  seat: SeatResponse;
 }
+export interface ActiveHoldsResponse { holds: HoldResponse[]; serverTime: string }
+export interface BookingReceipt { booking: BookingResponse; event: EventResponse; seats: SeatResponse[] }
+export interface BookingHistory { items: BookingReceipt[]; page: number; size: number; totalElements: number; totalPages: number }
 
 export interface BookingResponse {
   id: string;

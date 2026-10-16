@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   /* Colors - SeatLock brand palette */
@@ -159,3 +160,15 @@ body {
   background-color: var(--color-brand-primary);
   color: white;
 }
+:root:not(.dark) {
+  color-scheme: light;
+  --color-surface-base: #ffffff;
+  --color-surface-raised: #f1f5f9;
+  --color-surface-overlay: #f8fafc;
+  --color-surface-border: #cbd5e1;
+}
+:root:not(.dark) body { color: #0f172a; }
+:root:not(.dark) .status-success { color: #15803d; background: #dcfce7; }
+:root:not(.dark) .status-pending { color: #92400e; background: #fef3c7; }
+:root:not(.dark) .status-failure { color: #b91c1c; background: #fee2e2; }
+:root:not(.dark) .status-info { color: #1d4ed8; background: #dbeafe; }

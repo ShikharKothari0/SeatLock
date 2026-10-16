@@ -21,7 +21,7 @@ import java.util.Set;
 import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
+@SpringBootTest(properties = {"spring.kafka.listener.auto-startup=false", "spring.kafka.admin.auto-create=false", "spring.kafka.bootstrap-servers=localhost:1"})
 @Testcontainers
 @ActiveProfiles("test")
 public class CacheInvalidationTest {
@@ -42,6 +42,7 @@ public class CacheInvalidationTest {
         registry.add("spring.data.redis.port", redis::getMappedPort);
     }
 
+    @Autowired private SeatCacheService cacheService;
     @Autowired private SeatHoldService seatHoldService;
     @Autowired private SeatService seatService;
     @Autowired private SeatRepository seatRepository;
@@ -90,7 +91,8 @@ public class CacheInvalidationTest {
                 .isEqualTo(SeatStatus.AVAILABLE);
 
         // confirm the cache key actually exists now
-        String cacheKey = "seats:event:" + EVENT_ID;
+        long previousRevision = cacheService.revision(EVENT_ID);
+        String cacheKey = "seats:event:" + EVENT_ID + ":v" + previousRevision;
         assertThat(redisTemplate.hasKey(cacheKey))
                 .as("Cache must be populated after the first read")
                 .isTrue();
@@ -98,10 +100,10 @@ public class CacheInvalidationTest {
         // Step 2: hold the seat, thus invalidating the cache
         seatHoldService.holdSeat(SEAT_A1, TEST_USER);
 
-        // Step 3: confirm the cache key was evicted, not just stale
-        assertThat(redisTemplate.hasKey(cacheKey))
-                .as("Cache key must be evicted immediately after seat status changes")
-                .isFalse();
+        // The committed revision makes older cache fills unreachable.
+        assertThat(cacheService.revision(EVENT_ID)).isGreaterThan(previousRevision);
+        cacheKey = "seats:event:" + EVENT_ID + ":v" + cacheService.revision(EVENT_ID);
+        assertThat(redisTemplate.hasKey(cacheKey)).isFalse();
 
         // Step 4: read again, so must reflect the new HELD status
         // this read will be a cache miss, repopulating from Postgres

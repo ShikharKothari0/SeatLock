@@ -8,13 +8,13 @@ interface AdminLayoutProps {
 
 export function AdminLayout({ children }: AdminLayoutProps) {
   return (
-    <div className="flex min-h-screen bg-slate-950">
+    <div className="flex flex-col md:flex-row min-h-screen bg-white dark:bg-slate-950">
       <AdminSidebar />
-      <div className="flex-1 ml-64 min-w-0">
-        <header className="sticky top-0 z-[199] bg-slate-950/80 backdrop-blur-sm border-b border-slate-800">
+      <div className="flex-1 md:ml-64 min-w-0">
+        <header className="sticky top-0 z-[199] bg-white/80 dark:bg-slate-950/80 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800">
           <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16">
-              <h1 className="text-xl font-bold text-white">Admin Dashboard</h1>
+              <h1 className="text-xl font-bold text-slate-900 dark:text-white">Admin Dashboard</h1>
               <div className="text-xs text-slate-500 font-mono">
                 SeatLock Admin
               </div>

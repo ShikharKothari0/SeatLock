@@ -25,7 +25,7 @@ public class SeatHoldService {       // A dedicated service that orchestrates bo
     private final RedisLockService redisLockService;
     private final SeatRepository seatRepository;
     private final SeatEventProducer seatEventProducer;
-    private final SeatCacheService seatCacheService;
+    private final TransactionEffects effects;
 
     private final Counter holdsCreatedCounter;
     private final Counter holdsRejectedCounter;
@@ -36,12 +36,13 @@ public class SeatHoldService {       // A dedicated service that orchestrates bo
             SeatRepository seatRepository,
             SeatEventProducer seatEventProducer,
             SeatCacheService seatCacheService,
+            TransactionEffects effects,
             MeterRegistry meterRegistry
     ) {
         this.redisLockService = redisLockService;
         this.seatRepository = seatRepository;
         this.seatEventProducer = seatEventProducer;
-        this.seatCacheService = seatCacheService;
+        this.effects = effects;
 
         this.holdsCreatedCounter = Counter.builder("seatlock.holds.success")
                 .description("Number of seat holds successfully created")
@@ -64,53 +65,48 @@ public class SeatHoldService {       // A dedicated service that orchestrates bo
     @Transactional
     public void holdSeat(UUID seatId, UUID userId) {
         holdLatencyTimer.record(() -> {
-        // Step 1: acquire Redis lock atomically via Lua script
-        boolean acquired = redisLockService.acquireSeatHold(
-                seatId.toString(),
-                userId.toString(),
-                HOLD_DURATION
-        );
-
-        if (!acquired) {
+        Seat seat = seatRepository.lockSeats(java.util.List.of(seatId)).stream().findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("Seat not found: " + seatId));
+        if (seat.getStatus() != SeatStatus.AVAILABLE) {
             holdsRejectedCounter.increment();
-            throw new SeatNotAvailableException("Seat " + seatId + " is already held");
+            throw new SeatNotAvailableException("Seat is not available");
         }
-
-        // Step 2: update Postgres seat status to HELD (within the same transaction)
-        try {
-            Seat seat = seatRepository.findById(seatId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Seat not found: " + seatId));
-
-            if (seat.getStatus() != SeatStatus.AVAILABLE) {
-                holdsRejectedCounter.increment();
-                throw new SeatNotAvailableException("Seat " + seatId + " is not available");
-            }
-
-            seat.setStatus(SeatStatus.HELD);
-            seat.setHoldExpiresAt(Instant.now().plus(HOLD_DURATION));
-            seatRepository.save(seat);
-
-            // invalidate cache after the Postgres write commits
-            UUID eventId = seat.getEvent().getId();
-            seatCacheService.evictCache(eventId);
-
-            holdsCreatedCounter.increment();
-            log.debug("Hold created - seatId={} userId={}", seatId, userId);
-            log.debug("Cache invalidated after hold — eventId={} seatId={}", eventId, seatId);
-
-            seatEventProducer.publishSeatHeld(new SeatHeldEvent(
-                    seatId,
-                    userId,
-                    seat.getEvent().getId(),
-                    Instant.now(),
-                    seat.getHoldExpiresAt()
-            ));
-
-        } catch (Exception e) {
-            // Step 3: compensate — release the Redis lock if Postgres write fails
-            redisLockService.releaseLock("seat:lock:" + seatId);
-            throw e;
+        UUID token = UUID.randomUUID();
+        String lockValue = userId + ":" + token;
+        // Register before the network call: a timeout can hide a successful Redis acquisition.
+        effects.releaseOnRollback(seatId, lockValue);
+        Instant expiresAt = Instant.now().plus(HOLD_DURATION);
+        if (!redisLockService.acquireSeatHold(seatId.toString(), lockValue, HOLD_DURATION)) {
+            holdsRejectedCounter.increment();
+            throw new SeatNotAvailableException("Seat is already held");
         }
+        seat.setStatus(SeatStatus.HELD);
+        seat.setHeldBy(userId);
+        seat.setHoldToken(token);
+        seat.setHoldExpiresAt(expiresAt);
+        seatRepository.save(seat);
+        effects.changed(seat.getEvent().getId());
+        effects.afterCommit(holdsCreatedCounter::increment);
+        seatEventProducer.publishSeatHeld(new SeatHeldEvent(seatId, userId, seat.getEvent().getId(), Instant.now(), expiresAt));
     });
+    }
+
+    @Transactional
+    public void release(UUID seatId, UUID userId) {
+        Seat seat = seatRepository.lockSeats(java.util.List.of(seatId)).stream().findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("Seat not found"));
+        // Repeating a completed release is harmless, but never release another owner's hold.
+        if (seat.getStatus() == SeatStatus.AVAILABLE) return;
+        if (seat.getStatus() != SeatStatus.HELD || !userId.equals(seat.getHeldBy()))
+            throw new SeatNotAvailableException("This seat is not held by this user");
+        effects.releaseAfterCommit(seatId, seat.lockValue());
+        seat.setStatus(SeatStatus.AVAILABLE);
+        seat.setHeldBy(null);
+        seat.setHoldToken(null);
+        seat.setHoldExpiresAt(null);
+        UUID eventId = seat.getEvent().getId();
+        effects.changed(eventId);
+        seatEventProducer.publishSeatReleased(new com.ShikharKothari0.SeatLock.kafka.event.SeatReleasedEvent(
+                seatId, eventId, Instant.now(), "USER_RELEASED"));
     }
 }

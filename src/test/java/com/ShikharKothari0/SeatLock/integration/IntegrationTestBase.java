@@ -47,7 +47,7 @@ public class IntegrationTestBase {
     static void overrideProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.data.redis.host", redis::getHost);
         registry.add("spring.data.redis.port", () -> redis.getMappedPort(6379));
-        registry.add("spring.kafka.bootstrap-servers", () -> "localhost:9092");
+        registry.add("spring.kafka.bootstrap-servers", kafka::getBootstrapServers);
 
         // force 5s open-state wait for this test class only
         registry.add(

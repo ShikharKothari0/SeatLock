@@ -1,5 +1,5 @@
 -- KEYS[1] = the seat lock key, e.g. "seat:lock:<seatId>"
--- ARGV[1] = the userId requesting the hold
+-- ARGV[1] = opaque ownership value: userId:uniqueHoldToken
 -- ARGV[2] = TTL in seconds
 
 local existing = redis.call("GET", KEYS[1])

@@ -13,9 +13,10 @@ interface SeatGridProps {
   selectedSeatIds: string[];
   heldSeatIds: string[];
   onSeatToggle: (seatId: string) => void;
+  disabled?: boolean;
 }
 
-export function SeatGrid({ eventId, selectedSeatIds, heldSeatIds, onSeatToggle }: SeatGridProps) {
+export function SeatGrid({ eventId, selectedSeatIds, heldSeatIds, onSeatToggle, disabled = false }: SeatGridProps) {
   const { data: seats, isLoading, error, refetch } = useQuery<SeatResponse[], Error>({
     queryKey: ['seats', eventId],
     queryFn: () => apiClient.getSeats(eventId),
@@ -29,7 +30,7 @@ export function SeatGrid({ eventId, selectedSeatIds, heldSeatIds, onSeatToggle }
     return (
       <div className="flex flex-col items-center justify-center py-12 gap-4">
         <LoadingSpinner size="lg" ariaLabel="Loading seat map" />
-        <p className="text-slate-400 text-sm">Loading seat map...</p>
+        <p className="text-slate-600 dark:text-slate-400 text-sm">Loading seat map...</p>
       </div>
     );
   }
@@ -38,7 +39,7 @@ export function SeatGrid({ eventId, selectedSeatIds, heldSeatIds, onSeatToggle }
     return (
       <div className="flex flex-col items-center justify-center py-12 gap-4 text-center">
         <StatusBadge status="FAILED" label="Failed to load seats" />
-        <p className="text-slate-400 text-sm max-w-xs">
+        <p className="text-slate-600 dark:text-slate-400 text-sm max-w-xs">
           {error.message}. Click to retry.
         </p>
         <button
@@ -55,7 +56,7 @@ export function SeatGrid({ eventId, selectedSeatIds, heldSeatIds, onSeatToggle }
     return (
       <div className="flex flex-col items-center justify-center py-12 gap-4 text-center">
         <StatusBadge status="INFO" label="No seats found" />
-        <p className="text-slate-400 text-sm">No seats available for this event.</p>
+        <p className="text-slate-600 dark:text-slate-400 text-sm">No seats available for this event.</p>
       </div>
     );
   }
@@ -86,10 +87,10 @@ export function SeatGrid({ eventId, selectedSeatIds, heldSeatIds, onSeatToggle }
         <div className="w-full max-w-md px-4">
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-dashed border-slate-700" />
+              <div className="w-full border-t border-dashed border-slate-300 dark:border-slate-700" />
             </div>
             <div className="relative flex justify-center">
-              <span className="bg-slate-950 px-3 text-xs font-mono text-slate-500 uppercase tracking-wider">
+              <span className="bg-white dark:bg-slate-950 px-3 text-xs font-mono text-slate-500 uppercase tracking-wider">
                 STAGE
               </span>
             </div>
@@ -98,8 +99,8 @@ export function SeatGrid({ eventId, selectedSeatIds, heldSeatIds, onSeatToggle }
       </div>
 
       {/* Seat Grid */}
-      <div className="flex justify-center">
-        <div className="space-y-2 max-w-md">
+      <div className="overflow-x-auto pb-3">
+        <div className="space-y-2 w-max mx-auto">
           {ROW_LETTERS.map((rowLetter) => {
             const rowSeats = rows[rowLetter] || [];
             return (
@@ -112,6 +113,7 @@ export function SeatGrid({ eventId, selectedSeatIds, heldSeatIds, onSeatToggle }
                     <SeatCell
                       key={seat.id}
                       seat={seat}
+                      disabled={disabled}
                       isSelected={selectedSeatIds.includes(seat.id)}
                       isHeld={heldSeatIds.includes(seat.id)}
                       onToggle={() => onSeatToggle(seat.id)}
@@ -132,8 +134,9 @@ export function SeatGrid({ eventId, selectedSeatIds, heldSeatIds, onSeatToggle }
         </div>
       </div>
 
+      <p className="text-center text-xs text-slate-500 sm:hidden">Scroll the seat map sideways to see all columns.</p>
       {/* Legend */}
-      <div className="flex flex-wrap justify-center gap-4 text-sm text-slate-400">
+      <div className="flex flex-wrap justify-center gap-4 text-sm text-slate-600 dark:text-slate-400">
         <div className="flex items-center gap-1.5">
           <StatusBadge status="INFO" label="Legend" className="text-xs" />
         </div>

@@ -15,6 +15,20 @@ public class RedisLockService {
     private final StringRedisTemplate redisTemplate;
     private final RedisScript<Long> holdSeatScript;
 
+    public long ownedTtlMillis(String key, String owner) {
+        Long ttl = redisTemplate.execute(RedisScript.of(
+                "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('pttl', KEYS[1]) else return -2 end", Long.class),
+                Collections.singletonList(key), owner);
+        return ttl == null ? -2 : ttl;
+    }
+
+    public boolean releaseOwnedLock(String key, String owner) {
+        Long result = redisTemplate.execute(RedisScript.of(
+                "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end", Long.class),
+                Collections.singletonList(key), owner);
+        return Long.valueOf(1).equals(result);
+    }
+
 
     public RedisLockService(StringRedisTemplate redisTemplate, RedisScript<Long> holdSeatScript) {
         this.redisTemplate = redisTemplate;
@@ -81,9 +95,9 @@ public class RedisLockService {
     ) {
         log.warn(
                 "Circuit breaker OPEN — Redis unavailable for seat hold. " +
-                        "Falling back to DB-only optimistic locking for seatId={}. error={}",
+                        "Rejecting hold creation for seatId={}. error={}",
                 seatId, ex.getMessage()
         );
-        return true;
+        throw new IllegalStateException("Seat holds are temporarily unavailable", ex);
     }
 }

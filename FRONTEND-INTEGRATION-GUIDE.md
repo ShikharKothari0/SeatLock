@@ -1,5 +1,9 @@
 # SeatLock — Frontend Integration Guide
 
+> **Reservation API update:** server-backed recovery, exact expiry, hold release, receipt lookup and paginated history are now implemented. The original contracts/checklists below are historical; see [current reservation contracts](docs/reservation-recovery.md).
+
+> **Implementation status — 16 October 2026:** The unchecked lists below describe the original plan, not the current completion state. See [frontend stabilization](docs/frontend-stabilization.md) for fixes, verification and remaining boundaries, and [the end-to-end roadmap](docs/end-to-end-roadmap.md) for the ordered next milestones. In particular, receipts now use saved server responses, payment is explicitly simulated, and developer-console Kafka delivery is unverified.
+
 > This document specifies the existing backend structure relevant to frontend
 > development, the API contracts the frontend must conform to, known constraints
 > and business rules, the backend additions that must be built before frontend
@@ -13,8 +17,8 @@
 ## Part 1 — Existing Backend API Surface
 
 The backend currently exposes these REST endpoints. All return JSON. All are
-accessible at `http://localhost:8080`. CORS is not yet configured — this is a
-backend prerequisite task (see Part 3).
+accessible at `http://localhost:8080`. Local CORS is configured for localhost
+and 127.0.0.1 on ports 5173 and 3000; deployment origins require configuration.
 
 \---
 
@@ -1120,6 +1124,3 @@ SeatLock/
 |`/api/admin/metrics/circuit-breakers`|GET|CircuitBreakersPage|Every 5s|
 |`/api/admin/health`|GET|SystemHealthPage|Every 10s|
 |`/api/admin/metrics/stream`|GET (SSE)|DeveloperConsole, DashboardPage|Continuous|
-
-
-
