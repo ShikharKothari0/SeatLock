@@ -15,16 +15,16 @@ export function ReleaseHolds() {
       const results = await Promise.allSettled(session.heldSeatIds.map(id => apiClient.releaseHold(id, session.userId)));
       await recoverReservation();
       await queries.invalidateQueries({ queryKey: ['seats'] });
-      if (results.some(result => result.status === 'rejected')) setError('Some releases failed. Your remaining holds are shown; retry when connected.');
+      if (results.some(result => result.status === 'rejected')) setError('Some seats could not be cancelled. Your remaining reservation is shown. Please try again.');
     } catch {
       useSessionStore.setState({ reservationVerified: false });
-      setError('Unable to verify releases. Refresh your reservation before continuing.');
+      setError('We couldn’t check whether your selection was cancelled. Please reconnect and try again.');
     }
     finally { setBusy(false); useSessionStore.getState().setHoldInProgress(false); }
   };
   return <div className="space-y-2">
     <button disabled={busy || session.holdInProgress || !!session.pendingConfirmation} onClick={() => void release()} className="text-indigo-700 dark:text-indigo-400 disabled:opacity-50">
-      {busy ? 'Releasing seats…' : 'Release held seats'}
+      {busy ? 'Cancelling selection…' : 'Cancel reservation'}
     </button>
     {error && <p role="alert" className="text-red-600">{error}</p>}
   </div>;

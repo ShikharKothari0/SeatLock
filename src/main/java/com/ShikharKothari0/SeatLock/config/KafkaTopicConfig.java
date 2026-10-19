@@ -3,10 +3,15 @@ package com.ShikharKothari0.SeatLock.config;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.config.TopicBuilder;
 
 @Configuration
+@ConditionalOnProperty(name = "seatlock.kafka.manage-topics", havingValue = "true", matchIfMissing = true)
 public class KafkaTopicConfig {
+    @Value("${seatlock.kafka.partitions:3}")
+    private int partitions;
 
     // Main topics
     public static final String TOPIC_SEAT_HELD = "seat-held";
@@ -22,7 +27,7 @@ public class KafkaTopicConfig {
     @Bean
     public NewTopic seatHeldTopic() {
         return TopicBuilder.name(TOPIC_SEAT_HELD)
-                .partitions(3)
+                .partitions(partitions)
                 .replicas(1)
                 .build();
     }
@@ -30,7 +35,7 @@ public class KafkaTopicConfig {
     @Bean
     public NewTopic seatConfirmedTopic() {
         return TopicBuilder.name(TOPIC_SEAT_CONFIRMED)
-                .partitions(3)
+                .partitions(partitions)
                 .replicas(1)
                 .build();
     }
@@ -38,7 +43,7 @@ public class KafkaTopicConfig {
     @Bean
     public NewTopic seatReleasedTopic() {
         return TopicBuilder.name(TOPIC_SEAT_RELEASED)
-                .partitions(3)
+                .partitions(partitions)
                 .replicas(1)
                 .build();
     }
@@ -46,7 +51,7 @@ public class KafkaTopicConfig {
     @Bean
     public NewTopic seatConfirmedDltTopic() {
         return TopicBuilder.name(TOPIC_SEAT_CONFIRMED_DLT)
-                .partitions(3)
+                .partitions(partitions)
                 .replicas(1)
                 .build();
     }
@@ -54,7 +59,7 @@ public class KafkaTopicConfig {
     @Bean
     public NewTopic seatReleasedDltTopic() {
         return TopicBuilder.name(TOPIC_SEAT_RELEASED_DLT)
-                .partitions(3)
+                .partitions(partitions)
                 .replicas(1)
                 .build();
     }

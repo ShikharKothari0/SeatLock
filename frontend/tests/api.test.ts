@@ -25,3 +25,18 @@ test('network errors remain distinguishable from business rejection', async () =
   api.defaults.adapter = async () => { throw new AxiosError('Network error'); };
   await assert.rejects(apiClient.getEvents(), (error: Error & { status?: number }) => error.status === 0 && error.message.includes('Unable to reach'));
 });
+
+test('writes attach CSRF and never transmit a supplied owner', async () => {
+  const writes = [];
+  api.defaults.adapter = async config => {
+    if (config.url === '/auth/csrf') return { data: { headerName: 'X-CSRF-TOKEN', token: 'test-token' }, status: 200, statusText: 'OK', headers: {}, config };
+    writes.push(config);
+    return { data: {}, status: 200, statusText: 'OK', headers: {}, config };
+  };
+  await apiClient.holdSeat('seat-1', 'forged-owner');
+  await apiClient.confirmBooking({ userId: 'forged-owner', seatIds: ['seat-1'], idempotencyKey: 'key' });
+  for (const write of writes) {
+    assert.equal(write.headers.get('X-CSRF-TOKEN'), 'test-token');
+    assert.equal(JSON.parse(write.data).userId, undefined);
+  }
+});

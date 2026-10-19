@@ -80,6 +80,7 @@ public class BookingService {
         List<Seat> seats = seatRepository.lockSeats(request.seatIds());
         if (seats.size() != request.seatIds().size()) throw new SeatNotAvailableException("Invalid or duplicate seats");
         Event event = seats.get(0).getEvent();
+        effects.requireSalesOpen(event.getId());
         for (Seat seat : seats) {
             if (!seat.getEvent().getId().equals(event.getId())) throw new SeatNotAvailableException("All seats must belong to the same event");
             if (seat.getStatus() != SeatStatus.HELD || !request.userId().equals(seat.getHeldBy())

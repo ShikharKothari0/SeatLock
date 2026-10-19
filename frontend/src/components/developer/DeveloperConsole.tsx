@@ -10,6 +10,7 @@ import { KafkaWidget } from './KafkaWidget';
 import { ApiCallWidget } from './ApiCallWidget';
 import { EventTimeline } from './EventTimeline';
 import { X } from 'lucide-react';
+import { useAuthStore } from '../../store/authStore';
 
 const panelVariants = {
   hidden: { x: '100%', opacity: 0 },
@@ -20,10 +21,11 @@ const panelVariants = {
 export function DeveloperConsole() {
   const { enabled, events, toggle } = useDeveloperModeStore();
   const latestEvent = events[0] || null;
+  const user = useAuthStore(state => state.user);
 
   return (
     <AnimatePresence>
-      {enabled && (
+      {enabled && user?.role === 'ADMIN' && (
         <motion.div
           initial="hidden"
           animate="visible"

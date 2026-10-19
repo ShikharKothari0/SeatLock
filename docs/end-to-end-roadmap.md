@@ -1,17 +1,32 @@
 # SeatLock: path to an end-to-end project
 
-> **Latest milestone:** transaction/outbox hardening is implemented and covered by isolated failure/concurrency tests. See [transaction hardening](transaction-hardening.md) for current guarantees and limits. Earlier milestone descriptions below are historical; authenticated identity is next.
+> **Deployment packaging milestone (19 October 2026):** images, private dependency networking, same-origin proxy and configurable HTTPS/cookies are verified locally. See [deployment](deployment.md). Next: CI/release checks and real-host validation; the project is not yet publicly deployed.
+
+> **Database persistence milestone (19 October 2026):** PostgreSQL volume adoption, backups and isolated restores are verified; see [database recovery](database-recovery.md). Deployment packaging/public-access configuration is next. Redis/Kafka recovery and off-device backup automation remain open.
+
+> **Payment milestone (19 October 2026):** durable demo payment attempts, success/decline/delay outcomes, background processing and safe retries are implemented. See [demo payments](demo-payments.md) for contracts, validation and limits. No real money is charged.
+
+
+> **Catalog/pricing milestone:** admin venue/layout creation, draft event publication, sales closure and server-owned price quotes are implemented. See [catalog and pricing](catalog-and-pricing.md) for current contracts, limits and validation. Confirmation now requires a quote ID; older contract descriptions below are historical.
+
+
+> **Completed authentication milestone:** authenticated accounts, session-based reservation ownership and administrator authorization are implemented. See [authentication](authentication.md) for setup, current API contracts, validation and deployment limits. Older milestone descriptions below are historical. Server-owned pricing is covered by the catalog milestone above.
+
+
+> **Completed transaction milestone:** transaction/outbox hardening is implemented and covered by isolated failure/concurrency tests. See [transaction hardening](transaction-hardening.md) for current guarantees and limits. Earlier milestone descriptions below are historical; authenticated identity is covered by the authentication milestone above.
 
 
 > **Subsequent milestone completed:** server-backed hold recovery/release, exact expiry and receipt/history retrieval are now implemented. See [reservation recovery](reservation-recovery.md) for the current contracts, checks and remaining boundaries. Earlier sections below record the preceding stabilization pass.
 
 Updated: 16 October 2026. This is an implementation roadmap, not a claim that future stages are complete.
 
-## Current milestone
+## Current milestone — 19 October 2026
 
-The backend implements the main reservation services. The frontend now has a buildable booking journey with API response typing, partial-hold recovery, conservative expiry handling, stable confirmation retries, saved server-returned receipts, responsive navigation, and light/dark styling.
+Authenticated ownership, server-backed reservation recovery, transaction/outbox hardening, administrator-created venues/events, publication/sales closure and server-owned price quotes are implemented. Receipts and booking history come from the backend; accepted prices are stored with the booking. See the milestone documents above for current validation and limits.
 
-Receipts are retained in sessionStorage for the current browser tab. They are not authoritative account history. Payment is explicitly simulated. The admin UI labels backend placeholder measurements as unavailable, and developer events only claim what the browser actually observed.
+Durable demo payments with success/failure/delay outcomes and idempotent confirmation are implemented. Richer event content, protected draft editing/private preview and customer discovery are also complete; see [event catalogue](event-catalogue.md). PostgreSQL persistence and isolated backup/restore are now verified. Deployment packaging is now locally verified; next are CI/release checks and real-host validation. An actual gateway is optional for this personal project. Deployment, observability and broader load validation remain open.
+
+The numbered sections below preserve the original implementation roadmap; completed milestones above supersede their old descriptions of missing functionality.
 
 ## 1. Establish a repeatable local booking demo
 

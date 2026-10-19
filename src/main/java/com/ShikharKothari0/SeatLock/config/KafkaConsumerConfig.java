@@ -7,7 +7,7 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
@@ -25,14 +25,11 @@ public class KafkaConsumerConfig {
     private static final Logger log =
             LoggerFactory.getLogger(KafkaConsumerConfig.class);
 
-    @Value("${spring.kafka.bootstrap-servers}")
-    private String bootstrapServers;
-
     // dedicated producer factory for DLT publishing
     @Bean("dltProducerFactory")
-    public ProducerFactory<String, String> dltProducerFactory() {
-        Map<String, Object> config = new HashMap<>();
-        config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+    public ProducerFactory<String, String> dltProducerFactory(KafkaProperties properties) {
+        // Preserve TLS/SASL and provider settings for failure-topic publishing too.
+        Map<String, Object> config = new HashMap<>(properties.buildProducerProperties());
         config.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,   StringSerializer.class);
         config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         config.put(ProducerConfig.ACKS_CONFIG, "all");
@@ -47,7 +44,7 @@ public class KafkaConsumerConfig {
     public KafkaTemplate<String, String> dltKafkaTemplate(
             @Qualifier("dltProducerFactory") ProducerFactory<String, String> dltproducerFactory
     ) {
-        return new KafkaTemplate<>(dltProducerFactory());
+        return new KafkaTemplate<>(dltproducerFactory);
     }
 
     // error handler: retry 3×, then publish to DLT

@@ -11,9 +11,10 @@ import java.util.UUID;
 @RequestMapping("/api/events/{eventId}/seats")
 public class SeatController {
     private final SeatService seatService;
+    private final com.ShikharKothari0.SeatLock.service.CatalogService catalog;
 
-    public SeatController(SeatService seatService) {
-        this.seatService = seatService;
+    public SeatController(SeatService seatService, com.ShikharKothari0.SeatLock.service.CatalogService catalog) {
+        this.seatService = seatService; this.catalog=catalog;
     }
 
     @GetMapping
@@ -21,6 +22,7 @@ public class SeatController {
             @PathVariable UUID eventId,
             @RequestParam(required = false) SeatStatus status
     ) {
+        catalog.visible(eventId);
         return seatService.getSeats(eventId, status);
     }
 }

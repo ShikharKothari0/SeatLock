@@ -61,7 +61,7 @@ class ReservationHardeningTest {
         event=UUID.randomUUID(); owner=UUID.randomUUID(); seat=UUID.randomUUID(); UUID venue=UUID.randomUUID();
         jdbc.update("INSERT INTO venue VALUES (?, 'Hardening test', 'Test', 1)", venue);
         jdbc.update("INSERT INTO app_user VALUES (?, ?, 'Test')", owner, owner+"@example.invalid");
-        jdbc.update("INSERT INTO event(id,name,venue_id,sale_start_time,event_time) VALUES (?, 'Test', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)", event, venue);
+        jdbc.update("INSERT INTO event(id,name,venue_id,sale_start_time,event_time) VALUES (?, 'Test', ?, CURRENT_TIMESTAMP - INTERVAL '1 minute', CURRENT_TIMESTAMP + INTERVAL '1 day')", event, venue);
         jdbc.update("INSERT INTO seat(id,event_id,seat_number,section,status,version) VALUES (?,?,'T1','Test','AVAILABLE',0)", seat, event);
     }
     BookingConfirmRequest request(String key) { return new BookingConfirmRequest(owner, List.of(seat), key); }

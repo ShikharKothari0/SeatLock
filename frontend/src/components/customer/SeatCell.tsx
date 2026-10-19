@@ -53,7 +53,7 @@ export function SeatCell({ seat, isSelected, isHeld, onToggle, disabled = false 
   } else if (isActuallyHeld) {
     // Held: amber at 60% opacity, not clickable
     statusClasses = 'bg-amber-500/60 cursor-not-allowed';
-    tooltip = isHeld ? 'Held by you' : 'Held by another user';
+    tooltip = isHeld ? 'Reserved for you' : 'Temporarily unavailable';
   } else if (isActuallyAvailable) {
     if (isSelected) {
       // Selected: violet ring + fill

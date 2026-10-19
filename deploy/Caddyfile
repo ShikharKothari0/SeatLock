@@ -1,0 +1,23 @@
+{$SITE_ADDRESS} {
+    encode gzip
+    header {
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+        X-Frame-Options DENY
+    }
+    handle /api/* {
+        reverse_proxy backend:8080 {
+            header_up -Forwarded
+            flush_interval -1
+        }
+    }
+    handle /actuator/* {
+        respond 404
+    }
+    handle {
+        root * /srv
+        try_files {path} /index.html
+        header Cache-Control "no-cache"
+        file_server
+    }
+}

@@ -1,10 +1,8 @@
 package com.ShikharKothari0.SeatLock.controller;
 
-import com.ShikharKothari0.SeatLock.dto.request.SeatHoldRequest;
 import com.ShikharKothari0.SeatLock.exception.RateLimitExceededException;
 import com.ShikharKothari0.SeatLock.service.RateLimiterService;
 import com.ShikharKothari0.SeatLock.service.SeatHoldService;
-import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.ShikharKothari0.SeatLock.dto.response.ReservationResponse;
@@ -28,25 +26,25 @@ public class SeatHoldController {
     @PostMapping("/{seatId}/hold")
     public ResponseEntity<ReservationResponse.Hold> holdSeat(
             @PathVariable UUID seatId,
-            @Valid @RequestBody SeatHoldRequest request
+            java.security.Principal principal
     ) {
         // rate limit check happens before any business logic
-        if(!rateLimiterService.isAllowed(request.userId().toString())) {
+        if(!rateLimiterService.isAllowed(UUID.fromString(principal.getName()).toString())) {
             throw new RateLimitExceededException(
                     "Too many hold requests - please wait before trying again"
             );
         }
 
-        seatHoldService.holdSeat(seatId, request.userId());
-        return ResponseEntity.ok(reservations.hold(seatId, request.userId()));
+        seatHoldService.holdSeat(seatId, UUID.fromString(principal.getName()));
+        return ResponseEntity.ok(reservations.hold(seatId, UUID.fromString(principal.getName())));
     }
 
     @GetMapping("/holds")
-    public ReservationResponse.ActiveHolds activeHolds(@RequestParam UUID userId) { return reservations.active(userId); }
+    public ReservationResponse.ActiveHolds activeHolds(java.security.Principal principal) { return reservations.active(UUID.fromString(principal.getName())); }
 
     @DeleteMapping("/{seatId}/hold")
-    public ResponseEntity<Void> release(@PathVariable UUID seatId, @RequestParam UUID userId) {
-        seatHoldService.release(seatId, userId);
+    public ResponseEntity<Void> release(@PathVariable UUID seatId, java.security.Principal principal) {
+        seatHoldService.release(seatId, UUID.fromString(principal.getName()));
         return ResponseEntity.noContent().build();
     }
 }

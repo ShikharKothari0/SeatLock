@@ -1,0 +1,11 @@
+# Local approximation of the free web host's memory budget; does not prove cloud performance.
+services:
+  backend:
+    mem_limit: 512m
+    environment:
+      JAVA_TOOL_OPTIONS: -Xms64m -Xmx192m -XX:MaxMetaspaceSize=192m -XX:ReservedCodeCacheSize=32m -XX:ActiveProcessorCount=2 -XX:+ExitOnOutOfMemoryError
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: '4'
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: '0'
+      SPRING_KAFKA_LISTENER_CONCURRENCY: '1'
+      SPRING_DATA_REDIS_LETTUCE_POOL_MAX_ACTIVE: '4'
+      SPRING_DATA_REDIS_LETTUCE_POOL_MIN_IDLE: '0'

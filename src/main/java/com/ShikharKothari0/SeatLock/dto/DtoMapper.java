@@ -18,7 +18,8 @@ public class DtoMapper {
                 event.getVenue().getName(),
                 event.getVenue().getCity(),
                 event.getSaleStartTime(),
-                event.getEventTime()
+                event.getEventTime(), event.getDescription(), event.getCategory(), event.getPosterUrl(),
+                event.getDurationMinutes(), event.getPublication(), event.getSaleEndTime()
         );
     }
 

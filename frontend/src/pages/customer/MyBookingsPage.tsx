@@ -1,3 +1,4 @@
+import { customerMessage } from '../../lib/customerMessage';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../lib/api';
@@ -12,9 +13,9 @@ export function MyBookingsPage() {
   const receipts = query.data?.items ?? [];
   return <main className="max-w-4xl w-full mx-auto px-4 py-8 space-y-6">
     <h1 className="text-3xl font-bold text-slate-900 dark:text-white">My Bookings</h1>
-    <p className="text-slate-600 dark:text-slate-400">Bookings retrieved from the server for the current demo user.</p>
+    <p className="text-slate-600 dark:text-slate-400">Find your upcoming plans and past bookings here.</p>
     {query.isLoading && <p role="status" className="text-slate-500">Loading bookings…</p>}
-    {query.error && <div role="alert" className="text-red-600"><p>{query.error.message}</p><button onClick={() => void query.refetch()}>Retry history</button></div>}
+    {query.error && <div role="alert" className="text-red-600"><p>{customerMessage(query.error, 'We couldn’t load your bookings. Please try again.')}</p><button onClick={() => void query.refetch()}>Try again</button></div>}
     {query.data && !receipts.length && <p className="text-slate-600 dark:text-slate-400">No bookings yet. <Link to="/" className="text-indigo-700 dark:text-indigo-400">Browse events</Link></p>}
     {receipts.map(({ booking, event, seats }) => <article key={booking.id} className="bg-slate-100/50 dark:bg-slate-800/50 border border-slate-300/50 dark:border-slate-600/50 rounded-xl p-6 space-y-3">
       <h2 className="text-xl text-slate-900 dark:text-white">{event?.name ?? booking.eventId}</h2>

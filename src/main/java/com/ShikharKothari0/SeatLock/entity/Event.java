@@ -33,4 +33,17 @@ public class Event {
 
     @Column(name = "event_time", nullable = false)
     private Instant eventTime;
+    private String description = "";
+    private String category = "Other";
+    @Column(name="poster_url")
+    private String posterUrl = "";
+    @Column(name="duration_minutes")
+    private Integer durationMinutes;
+    private String publication = "PUBLISHED";
+    @Column(name="sale_end_time")
+    private Instant saleEndTime;
+
+    public Event(UUID id, String name, Venue venue, Instant saleStartTime, Instant eventTime) {
+        this.id=id; this.name=name; this.venue=venue; this.saleStartTime=saleStartTime; this.eventTime=eventTime;
+    }
 }

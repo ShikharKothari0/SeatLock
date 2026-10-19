@@ -1,0 +1,14 @@
+**/node_modules
+**/target
+**/dist
+.git
+.idea
+.env*
+backups
+secrets
+*.pem
+*.key
+*.p12
+*.jks
+frontend/test-results
+*.log

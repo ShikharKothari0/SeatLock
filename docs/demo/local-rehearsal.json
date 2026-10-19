@@ -1,0 +1,14 @@
+{
+  "startedAt": "2026-10-19T11:07:21.914Z",
+  "checks": [
+    "admin creates venue layout and priced draft through the UI; draft remains private",
+    "admin edits event details and reviews a saved preview while the draft stays private",
+    "published event can be booked with the same exact INR total at checkout and refreshed receipt",
+    "client-supplied totals are ignored and retry returns the original priced booking",
+    "sales closure blocks new reservations and preserves existing receipts"
+  ],
+  "venueId": "d781b0a2-aa2e-45c8-879f-592fb7332e5d",
+  "eventId": "cf5682a9-1600-4c8f-b95a-1889bfd87c12",
+  "bookingId": "c37eeac8-3cea-4aa2-9876-f648e6887f15",
+  "result": "PASS"
+}

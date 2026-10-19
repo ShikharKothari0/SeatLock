@@ -1,0 +1,46 @@
+import { chromium } from 'playwright';
+import { randomUUID } from 'node:crypto';
+import { mkdir, writeFile } from 'node:fs/promises';
+import assert from 'node:assert/strict';
+if (process.env.SEATLOCK_LIVE_TEST !== '1') throw new Error('Set SEATLOCK_LIVE_TEST=1 to create dedicated validation accounts.');
+const ui = 'http://127.0.0.1:5173';
+const browser = await chromium.launch({ headless: true, ...(process.env.BROWSER_CHANNEL ? { channel: process.env.BROWSER_CHANNEL } : {}) });
+const report = { checks: [], startedAt: new Date().toISOString() };
+const pass = name => { report.checks.push(name); console.log('PASS', name); };
+try {
+  const context = await browser.newContext(); const page = await context.newPage();
+  const errors = []; page.on('pageerror', e => errors.push(e.message));
+  const email = `browser-${randomUUID()}@example.invalid`, password = randomUUID() + 'Z!';
+  await page.goto(ui + '/my-bookings'); await page.waitForURL('**/login?next=*');
+  await page.getByRole('button', { name: 'Create an account', exact: true }).click();
+  await page.getByLabel('Name', { exact: true }).fill('Browser account');
+  await page.getByLabel('Email', { exact: true }).fill(email);
+  await page.getByLabel('Password', { exact: true }).fill(password);
+  await page.getByRole('button', { name: 'Create account', exact: true }).click();
+  await page.waitForURL('**/my-bookings'); await page.getByRole('button', { name: 'Sign out' }).waitFor();
+  const me = await (await context.request.get(ui + '/api/auth/me')).json(); report.accountId = me.id;
+  assert.equal(me.role, 'CUSTOMER');
+  pass('registration signs in and returns to the protected destination');
+  await page.reload(); await page.getByRole('button', { name: 'Sign out' }).waitFor();
+  const cookie = (await context.cookies()).find(c => c.name === 'JSESSIONID'); assert.equal(cookie.httpOnly, true); assert.equal(cookie.sameSite, 'Lax');
+  pass('session survives reload using an HttpOnly SameSite cookie');
+  await page.goto(ui + '/admin'); await page.getByRole('heading', { name: 'Access denied' }).waitFor();
+  assert.equal((await context.request.get(ui + '/api/admin/health')).status(), 403);
+  assert.equal(await page.getByRole('link', { name: 'Admin', exact: true }).count(), 0);
+  pass('customer cannot open admin pages or call admin APIs');
+  const csrf = await (await context.request.get(ui + '/api/auth/csrf')).json();
+  assert.equal((await context.request.post(ui + '/api/auth/logout', { headers: { [csrf.headerName]: csrf.token } })).status(), 204);
+  await page.goto(ui + '/my-bookings'); await page.waitForURL('**/login?next=*');
+  await page.getByLabel('Email', { exact: true }).fill(email); await page.getByLabel('Password', { exact: true }).fill('incorrect-password');
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await page.getByRole('alert').filter({ hasText: 'Invalid email or password' }).waitFor();
+  await page.getByLabel('Password', { exact: true }).fill(password);
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click(); await page.waitForURL('**/my-bookings');
+  await page.getByRole('button', { name: 'Sign out' }).click(); await page.waitForURL('**/login');
+  assert.equal((await context.request.get(ui + '/api/auth/me')).status(), 401);
+  pass('expired session requires sign-in; bad credentials fail; sign-out invalidates the session');
+  assert.deepEqual(errors, []);
+  await page.screenshot({ path: 'test-results/auth-login.png', fullPage: true });
+  report.result = 'PASS';
+} catch (error) { report.result = 'FAIL'; report.error = error.stack; throw error; }
+finally { await mkdir('test-results', { recursive: true }); await writeFile('test-results/auth-validation.json', JSON.stringify(report, null, 2)); await browser.close(); }

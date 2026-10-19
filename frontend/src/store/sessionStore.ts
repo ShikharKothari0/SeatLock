@@ -8,6 +8,7 @@ export interface BookingReceipt {
   seats: SeatResponse[];
 }
 export interface SessionState {
+  quote: import('../types/api').PriceQuote | null;
   reservationVerified: boolean;
   userId: string;
   holdInProgress: boolean;
@@ -29,18 +30,19 @@ export interface SessionState {
   clearHold: () => void;
   setBookingConfirmed: (booking: BookingResponse) => void;
   generateIdempotencyKey: () => string;
-  beginConfirmation: () => BookingConfirmRequest;
+  beginConfirmation: (method?: import('../types/api').PaymentMethod, scenario?: import('../types/api').PaymentScenario) => BookingConfirmRequest;
   rejectConfirmation: () => void;
   reset: () => void;
 }
 const checkoutEmpty = {
+  quote: null as import('../types/api').PriceQuote | null,
   selectedSeatIds: [] as string[], heldSeatIds: [] as string[],
   holdExpiresAt: null as number | null, idempotencyKey: null as string | null,
   pendingConfirmation: null as BookingConfirmRequest | null,
 };
 const initialState = {
   reservationVerified: false,
-  ...checkoutEmpty, userId: '33333333-3333-3333-3333-333333333333', holdInProgress: false,
+  ...checkoutEmpty, userId: '', holdInProgress: false,
   event: null as EventResponse | null, seats: [] as SeatResponse[],
   lastBookingId: null as string | null, receipts: [] as BookingReceipt[],
 };
@@ -66,7 +68,7 @@ export const useSessionStore = create<SessionState>()(persist((set, get) => ({
   setHeld: (seatIds, expiresAt) => set(state => {
     if (state.pendingConfirmation) return {};
     const heldSeatIds = [...new Set([...state.heldSeatIds, ...seatIds])];
-    return { heldSeatIds, holdExpiresAt: Math.min(state.holdExpiresAt ?? expiresAt, expiresAt),
+    return { quote: null, heldSeatIds, holdExpiresAt: Math.min(state.holdExpiresAt ?? expiresAt, expiresAt),
       selectedSeatIds: state.selectedSeatIds.filter(id => !heldSeatIds.includes(id)), idempotencyKey: null };
   }),
   clearHold: () => set(state => state.pendingConfirmation ? {} : checkoutEmpty),
@@ -75,16 +77,17 @@ export const useSessionStore = create<SessionState>()(persist((set, get) => ({
     set({ idempotencyKey: key });
     return key;
   },
-  beginConfirmation: () => {
+  beginConfirmation: (method = 'UPI', scenario = 'SUCCESS') => {
     const state = get();
     // A lost response can hide a committed booking. Retry the original payload and key.
     if (state.pendingConfirmation) return state.pendingConfirmation;
-    if (!state.heldSeatIds.length || (state.holdExpiresAt ?? 0) <= Date.now()) throw new Error('Your hold has expired. Please select seats again.');
-    const request = { userId: state.userId, seatIds: [...state.heldSeatIds], idempotencyKey: state.generateIdempotencyKey() };
+    if (!state.heldSeatIds.length || (state.holdExpiresAt ?? 0) <= Date.now()) throw new Error('Your reservation expired. Please select your seats again.');
+    if (!state.quote || (state.quote.validUntil ?? Date.parse(state.quote.expiresAt)) <= Date.now()) throw new Error('Review your updated total at checkout.');
+    const request = { method, scenario, userId: state.userId, seatIds: [...state.heldSeatIds], quoteId: state.quote.id, idempotencyKey: state.generateIdempotencyKey() };
     set({ pendingConfirmation: request });
     return request;
   },
-  rejectConfirmation: () => set({ pendingConfirmation: null }),
+  rejectConfirmation: () => set({ pendingConfirmation: null, idempotencyKey: null, quote: null }),
   setBookingConfirmed: booking => set(state => ({
     ...checkoutEmpty, reservationVerified: true, lastBookingId: booking.id,
     receipts: [{ booking, event: state.event?.id === booking.eventId ? state.event : null,

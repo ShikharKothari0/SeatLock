@@ -71,6 +71,7 @@ public class SeatHoldService {       // A dedicated service that orchestrates bo
             holdsRejectedCounter.increment();
             throw new SeatNotAvailableException("Seat is not available");
         }
+        effects.requireSalesOpen(seat.getEvent().getId());
         UUID token = UUID.randomUUID();
         String lockValue = userId + ":" + token;
         // Register before the network call: a timeout can hide a successful Redis acquisition.

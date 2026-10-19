@@ -8,9 +8,6 @@
 // Event: Test Concert
 export const EVENT_ID = '22222222-2222-2222-2222-222222222222';
 
-// User: testuser@seatlock.com
-export const USER_ID = '33333333-3333-3333-3333-333333333333';
-
 // Hold duration: 5 minutes = 300,000 ms
 export const HOLD_DURATION_MS = 300_000;
 
@@ -26,11 +23,6 @@ export type SeatSection = typeof SEAT_SECTIONS[number];
 export const ROW_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'] as const;
 
 export type RowLetter = typeof ROW_LETTERS[number];
-
-// Price constants (hardcoded for demo)
-export const PRICE_PER_SEAT = 499; // ₹499
-export const PLATFORM_FEE = 149;   // ₹149
-export const TAXES = 99;           // ₹99
 
 // Rate limiting constants
 export const HOLD_RATE_LIMIT_MAX = 5;

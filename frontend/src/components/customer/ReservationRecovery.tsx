@@ -17,7 +17,7 @@ export function ReservationRecovery({ children }: { children: ReactNode }) {
       if (active) {
         setState('ready');
         setNotice(previousHolds && !response.holds.length && !useSessionStore.getState().pendingConfirmation
-          ? 'Your previous reservation is no longer held. Check My Bookings if you recently confirmed, or select seats again.' : '');
+          ? 'Your previous reservation is no longer active. Check My Bookings if you recently confirmed, or select seats again.' : '');
       }
     }, () => { if (active) setState('error'); });
     return () => { active = false; };
@@ -31,8 +31,8 @@ export function ReservationRecovery({ children }: { children: ReactNode }) {
   </>;
   return <main className="p-8 space-y-4 text-slate-700 dark:text-slate-300">
     {state === 'loading' ? <p role="status">Checking your active reservations…</p> : <>
-      <p role="alert">Unable to check your reservation. Your saved state has been kept. Reconnect before reserving seats.</p>
-      <button onClick={() => { setState('loading'); setAttempt(attempt + 1); }}>Retry reservation recovery</button>
+      <p role="alert">Unable to check your reservation. Please reconnect and try again before selecting seats.</p>
+      <button onClick={() => { setState('loading'); setAttempt(attempt + 1); }}>Check reservation again</button>
       <Link className="block text-indigo-600" to="/my-bookings">View bookings</Link>
     </>}
   </main>;

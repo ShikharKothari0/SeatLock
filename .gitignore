@@ -1,4 +1,12 @@
 HELP.md
+.env
+.env.*
+backups/
+secrets/
+*.pem
+*.key
+*.p12
+*.jks
 target/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/

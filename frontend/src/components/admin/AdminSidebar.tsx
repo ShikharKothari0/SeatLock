@@ -4,6 +4,7 @@ import { NavLink } from 'react-router-dom';
 import { LayoutDashboard, Database, Server, BarChart2, Activity, HeartPulse, ArrowLeft } from 'lucide-react';
 
 const adminNavItems = [
+  { path: '/admin/catalog', label: 'Events & venues', icon: LayoutDashboard },
   { path: '/admin', label: 'Overview', icon: LayoutDashboard },
   { path: '/admin/redis', label: 'Redis', icon: Database },
   { path: '/admin/cache', label: 'Cache', icon: Server },

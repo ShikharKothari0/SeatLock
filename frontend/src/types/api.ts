@@ -8,6 +8,8 @@ export type SeatStatus = 'AVAILABLE' | 'HELD' | 'CONFIRMED';
 export type BookingStatus = 'HELD' | 'CONFIRMED' | 'EXPIRED' | 'CANCELLED';
 
 export interface EventResponse {
+  description?: string; category?: string; posterUrl?: string; durationMinutes?: number | null;
+  publication?: string; saleEndTime?: string | null;
   id: string;
   name: string;
   venueName: string;
@@ -54,8 +56,25 @@ export interface HoldRequest {
   userId: string;
 }
 
+export type PaymentScenario = 'SUCCESS' | 'FAILURE' | 'DELAYED_SUCCESS';
+export type PaymentMethod = 'UPI' | 'CARD' | 'NET_BANKING';
+export interface PaymentAttempt {
+  id: string; quoteId: string; status: 'PENDING' | 'SUCCEEDED' | 'FAILED' | 'EXPIRED';
+  amountMinor: number; currency: string; method: PaymentMethod; scenario: PaymentScenario;
+  readyAt: string; expiresAt: string; resultCode: string | null; booking: BookingResponse | null; demo: boolean;
+}
 export interface BookingConfirmRequest {
+  method?: PaymentMethod;
+  scenario?: PaymentScenario;
+  quoteId?: string;
   userId: string;
   seatIds: string[];
   idempotencyKey: string;
+}
+
+export interface PriceQuote {
+  serverTime?: string; validUntil?: number;
+  id: string; userId: string; eventId: string; currency: string; expiresAt: string;
+  subtotalMinor: number; feeMinor: number; totalMinor: number;
+  lines: { seatId: string; seatNumber: string; section: string; amountMinor: number }[];
 }

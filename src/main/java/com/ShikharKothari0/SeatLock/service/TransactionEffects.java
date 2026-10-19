@@ -18,6 +18,12 @@ public class TransactionEffects {
         this.jdbc = jdbc; this.locks = locks; this.cache = cache;
     }
     @Transactional(propagation = Propagation.MANDATORY)
+    public void requireSalesOpen(UUID eventId) {
+        var rows=jdbc.queryForList("SELECT publication, sale_start_time<=CURRENT_TIMESTAMP AND COALESCE(sale_end_time,event_time)>CURRENT_TIMESTAMP AS open FROM event WHERE id=? FOR UPDATE",eventId);
+        if(rows.isEmpty() || !"PUBLISHED".equals(rows.getFirst().get("publication")) || !Boolean.TRUE.equals(rows.getFirst().get("open")))
+            throw new com.ShikharKothari0.SeatLock.exception.SeatNotAvailableException("Event sales are not open");
+    }
+    @Transactional(propagation = Propagation.MANDATORY)
     public UUID enqueue(String kind, String destination, String key, String payload) {
         UUID id = UUID.randomUUID();
         jdbc.update("INSERT INTO reservation_outbox(id,kind,destination,message_key,payload) VALUES (?,?,?,?,?)",

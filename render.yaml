@@ -1,0 +1,38 @@
+services:
+  - type: web
+    name: seatlock-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./deploy/backend.Dockerfile
+    dockerContext: .
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: deployment,cloud-demo
+      - key: JAVA_TOOL_OPTIONS
+        value: -Xms64m -Xmx192m -XX:MaxMetaspaceSize=192m -XX:ReservedCodeCacheSize=32m -XX:ActiveProcessorCount=2 -XX:+ExitOnOutOfMemoryError
+      - key: SEATLOCK_COOKIE_SECURE
+        value: 'true'
+      - key: SEATLOCK_ALLOWED_ORIGINS
+        sync: false
+      - key: SPRING_DATASOURCE_URL
+        sync: false
+      - key: SPRING_DATASOURCE_USERNAME
+        sync: false
+      - key: SPRING_DATASOURCE_PASSWORD
+        sync: false
+      - key: SPRING_DATA_REDIS_HOST
+        sync: false
+      - key: SPRING_DATA_REDIS_PORT
+        sync: false
+      - key: SPRING_DATA_REDIS_USERNAME
+        sync: false
+      - key: SPRING_DATA_REDIS_PASSWORD
+        sync: false
+      - key: SPRING_KAFKA_BOOTSTRAP_SERVERS
+        sync: false
+      - key: KAFKA_JAAS_CONFIG
+        sync: false
+      - key: KAFKA_CA_PEM
+        sync: false

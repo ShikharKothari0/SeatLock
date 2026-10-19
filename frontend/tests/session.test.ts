@@ -40,6 +40,7 @@ test('fresh confirmation is rejected when the local hold has expired', () => {
 });
 test('ambiguous confirmation preserves payload and key even after expiry and refresh', async () => {
   store.getState().setHeld(['seat-1'], Date.now() + 60_000);
+  store.setState({ quote: { id: 'quote-1', userId: '', eventId: event.id, currency: 'INR', expiresAt: new Date(Date.now()+60000).toISOString(), subtotalMinor: 50000, feeMinor: 0, totalMinor: 50000, lines: [{ seatId: 'seat-1', seatNumber: 'A1', section: 'A', amountMinor: 50000 }] } });
   const first = store.getState().beginConfirmation();
   store.setState({ holdExpiresAt: Date.now() - 1 });
   store.getState().clearHold();

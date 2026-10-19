@@ -40,7 +40,7 @@ export function SeatGrid({ eventId, selectedSeatIds, heldSeatIds, onSeatToggle, 
       <div className="flex flex-col items-center justify-center py-12 gap-4 text-center">
         <StatusBadge status="FAILED" label="Failed to load seats" />
         <p className="text-slate-600 dark:text-slate-400 text-sm max-w-xs">
-          {error.message}. Click to retry.
+          We couldn’t load the seat map. Please try again.
         </p>
         <button
           onClick={() => refetch()}
@@ -146,7 +146,7 @@ export function SeatGrid({ eventId, selectedSeatIds, heldSeatIds, onSeatToggle, 
         </div>
         <div className="flex items-center gap-1">
           <span className="w-3 h-3 rounded-full bg-amber-500/60" />
-          <span>Held</span>
+          <span>Reserved</span>
         </div>
         <div className="flex items-center gap-1">
           <span className="w-3 h-3 rounded-full bg-violet-500 ring-1 ring-violet-400" />

@@ -1,14 +1,22 @@
+import { useEffect, useState } from 'react';
+import { EventPoster } from '../../components/customer/EventDetails';
+import { filterEvents, salesMessage } from '../../lib/eventDiscovery';
 // HomePage - Displays events with Book Now buttons
 
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../lib/api';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { EventResponse } from '../../types/api';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { StatusBadge } from '../../components/common/StatusBadge';
 
 export function HomePage() {
   const navigate = useNavigate();
+  const [filters, setFilters] = useSearchParams();
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 30000); return () => clearInterval(timer); }, []);
+  function setFilter(key: string, value: string) { const next = new URLSearchParams(filters); if (value) next.set(key,value); else next.delete(key); setFilters(next, { replace: true }); }
+
 
   const { data: events, isLoading, error, refetch } = useQuery<EventResponse[], Error>({
     queryKey: ['events'],
@@ -36,7 +44,7 @@ export function HomePage() {
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center">
         <StatusBadge status="FAILED" label="Failed to load events" />
         <p className="text-slate-600 dark:text-slate-400 text-sm max-w-xs">
-          {error.message}. Click to retry.
+          We couldn’t load events. Please try again.
         </p>
         <button
           onClick={() => refetch()}
@@ -57,6 +65,8 @@ export function HomePage() {
     );
   }
 
+  const visible = filterEvents(events, filters, now);
+  const filterField = 'block mt-1 w-full rounded border p-2 bg-white dark:bg-slate-900';
   return (
     <main className="max-w-7xl mx-auto px-4 py-8 space-y-8">
       {/* Hero Section */}
@@ -65,29 +75,33 @@ export function HomePage() {
           Find your event. Choose your seats.
         </h1>
         <p className="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-          Browse seat availability and reserve seats for up to five minutes.
-          A local ticket-booking demo; no payment is collected.
+          Discover events, choose your seats and plan your next outing.
+          Demo bookings — no money will be charged.
         </p>
       </section>
 
-      {/* Quick Stats */}
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto">
-        <div className="bg-slate-100/50 dark:bg-slate-800/50 border border-slate-300/50 dark:border-slate-600/50 rounded-xl p-4">
-          <p className="text-slate-600 dark:text-slate-400 text-sm uppercase tracking-wide mb-1">Events Available</p>
-          <p className="font-mono text-3xl font-bold text-slate-900 dark:text-white">{events.length}</p>
+      <section aria-label="Find events" className="rounded-xl border p-4 space-y-4 text-slate-700 dark:text-slate-300">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <label>Search events<input className={filterField} type="search" value={filters.get('q') ?? ''} onChange={e=>setFilter('q',e.target.value)} placeholder="Event or venue name" /></label>
+          <label>City<select aria-label="City" className={filterField} value={filters.get('city') ?? ''} onChange={e=>setFilter('city',e.target.value)}><option value="">All cities</option>{[...new Set(events.map(e=>e.venueCity))].sort().map(city=><option key={city}>{city}</option>)}</select></label>
+          <label>Category<select aria-label="Category" className={filterField} value={filters.get('category') ?? ''} onChange={e=>setFilter('category',e.target.value)}><option value="">All categories</option>{['Music','Comedy','Theatre','Sports','Workshop','Other'].map(category=><option key={category}>{category}</option>)}</select></label>
+          <label>From date<input className={filterField} type="date" value={filters.get('from') ?? ''} onChange={e=>setFilter('from',e.target.value)} /></label>
+          <label>To date<input className={filterField} type="date" min={filters.get('from') ?? undefined} value={filters.get('to') ?? ''} onChange={e=>setFilter('to',e.target.value)} /></label>
         </div>
-        <div className="bg-slate-100/50 dark:bg-slate-800/50 border border-slate-300/50 dark:border-slate-600/50 rounded-xl p-4">
-          <p className="text-slate-600 dark:text-slate-400 text-sm uppercase tracking-wide mb-1">Active Locks</p>
-          <p className="font-mono text-3xl font-bold text-slate-900 dark:text-white">—</p>
-        </div>
+        <label className="flex gap-2 items-center"><input type="checkbox" checked={filters.get('past') === '1'} onChange={e=>setFilter('past',e.target.checked?'1':'')} />Include past events</label>
+        <p className="text-sm">Dates use your local timezone: {Intl.DateTimeFormat().resolvedOptions().timeZone}.</p>
+        <button onClick={()=>setFilters({})} className="text-indigo-700 dark:text-indigo-300">Clear filters</button>
+        <p role="status">{visible.length} event(s) found</p>
+        {filters.get('from') && filters.get('to') && filters.get('from')! > filters.get('to')! && <p role="alert">Choose an end date on or after the start date.</p>}
       </section>
 
       {/* Event Cards */}
       <section>
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">Upcoming Events</h2>
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">{filters.get('past') === '1' ? 'Events' : 'Upcoming Events'}</h2>
+        {!visible.length && <p className="text-slate-600 dark:text-slate-400">No events match your filters. Try another city, category or date.</p>}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {events.map((event) => (
-            <EventCard key={event.id} event={event} onBookNow={handleBookNow} />
+          {visible.map((event) => (
+            <EventCard key={event.id} event={event} onBookNow={handleBookNow} now={now} />
           ))}
         </div>
       </section>
@@ -97,10 +111,11 @@ export function HomePage() {
 
 interface EventCardProps {
   event: EventResponse;
+  now: number;
   onBookNow: (eventId: string) => void;
 }
 
-function EventCard({ event, onBookNow }: EventCardProps) {
+function EventCard({ event, onBookNow, now }: EventCardProps) {
   const formatDate = (isoString: string) => {
     const date = new Date(isoString);
     return date.toLocaleDateString('en-IN', {
@@ -115,7 +130,9 @@ function EventCard({ event, onBookNow }: EventCardProps) {
 
   return (
     <article className="bg-slate-100/50 dark:bg-slate-800/50 border border-slate-300/50 dark:border-slate-600/50 rounded-xl p-6 hover:border-slate-500/50 transition-colors flex flex-col">
-      <div className="flex-1">
+      <EventPoster key={event.posterUrl} url={event.posterUrl} name={event.name} />
+      <p className="text-sm text-indigo-700 dark:text-indigo-300 mt-4">{event.category ?? 'Other'}{event.durationMinutes ? ` · ${event.durationMinutes} minutes` : ''}</p>
+      <div className="flex-1 mt-2">
         <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">{event.name}</h3>
         <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400">
           <div className="flex items-center gap-2">
@@ -139,11 +156,12 @@ function EventCard({ event, onBookNow }: EventCardProps) {
           </div>
         </div>
       </div>
+      {salesMessage(event,now) && <p className="mt-4 text-sm text-slate-600 dark:text-slate-400">{salesMessage(event,now)}</p>}
       <button
         onClick={() => onBookNow(event.id)}
         className="mt-6 w-full px-4 py-3 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors"
       >
-        Book Now
+        {salesMessage(event,now) ? 'View event' : 'Book Now'}
       </button>
     </article>
   );

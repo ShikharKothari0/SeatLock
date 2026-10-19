@@ -1,3 +1,4 @@
+import { accounts, send, createAccount, disposeAccounts } from './auth-helper.mjs';
 import { chromium } from 'playwright';
 import { randomUUID } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -15,13 +16,15 @@ const check = async (name, fn) => { const detail = await fn(); report.checks.pus
 const sql = query => execFileSync('docker', ['compose', 'exec', '-T', 'postgres', 'psql', '-U', 'admin', '-d', 'seatlock', '-v', 'ON_ERROR_STOP=1', '-At'], { cwd: '..', input: query, encoding: 'utf8', timeout: 15_000 }).trim();
 const redis = (...args) => execFileSync('docker', ['compose', 'exec', '-T', 'redis', 'redis-cli', '--raw', ...args], { cwd: '..', encoding: 'utf8', timeout: 10_000 }).trim();
 async function request(path, payload) {
-  const response = await fetch(api + path, { method: payload ? 'POST' : 'GET', headers: payload ? { 'Content-Type': 'application/json' } : {}, body: payload ? JSON.stringify(payload) : undefined, signal: AbortSignal.timeout(15_000) });
-  return { status: response.status, data: await response.json() };
+  const owner = payload?.userId ?? admin;
+  return send(accounts.get(owner), path.startsWith('/actuator/') ? api + path : path, payload ? 'POST' : 'GET', payload);
 }
 const hold = (seatId, userId) => request(`/api/seats/${seatId}/hold`, { userId });
 const confirm = (seatIds, userId, idempotencyKey = randomUUID()) => request('/api/bookings/confirm', { seatIds, userId, idempotencyKey });
-let browser;
+let browser, admin, customer;
 try {
+  admin = await createAccount(sql, true); customer = await createAccount(sql);
+  report.users = []; for (let i = 0; i < 4; i++) report.users.push(await createAccount(sql));
   await check('backend and real frontend proxy respond', async () => {
     assert.equal((await request('/actuator/health')).data.status, 'UP');
     assert.equal((await fetch(ui + '/api/events')).status, 200);
@@ -29,7 +32,7 @@ try {
   await check('metrics stream survives disconnect and reconnect', async () => {
     async function connect() {
       const controller = new AbortController();
-      const response = await fetch(api + '/api/admin/metrics/stream', { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(20000)]) });
+      const response = await fetch(api + '/api/admin/metrics/stream', { headers: { Cookie: (await accounts.get(admin).storageState()).cookies.map(c => c.name + '=' + c.value).join('; ') }, signal: AbortSignal.any([controller.signal, AbortSignal.timeout(20000)]) });
       assert.equal(response.status, 200);
       const reader = response.body.getReader();
       const first = await reader.read();
@@ -49,9 +52,9 @@ try {
   const stamp = new Date().toISOString().replace(/[^0-9T]/g, '').slice(0, 15);
   sql(`BEGIN;
 INSERT INTO venue VALUES ('${report.venueId}', 'Live Validation Arena', 'Mumbai', 12);
-INSERT INTO event VALUES ('${report.eventId}', 'Live validation ${stamp}', '${report.venueId}', NOW() - INTERVAL '1 day', NOW() + INTERVAL '7 days');
-${report.users.map((id, index) => `INSERT INTO app_user VALUES ('${id}', 'validation-${id}@example.invalid', 'Validation user ${index + 1}');`).join('\n')}
+INSERT INTO event (id,name,venue_id,sale_start_time,event_time) VALUES ('${report.eventId}', 'Live validation ${stamp}', '${report.venueId}', NOW() - INTERVAL '1 day', NOW() + INTERVAL '7 days');
 ${report.seats.map((id, index) => `INSERT INTO seat (id,event_id,seat_number,section,status,version) VALUES ('${id}','${report.eventId}','A${index + 1}','Validation','AVAILABLE',0);`).join('\n')}
+INSERT INTO event_price SELECT DISTINCT event_id,section,50000 FROM seat WHERE event_id='${report.eventId}';
 COMMIT;`);
   await save();
   const expiryStarted = Date.now();
@@ -84,22 +87,22 @@ COMMIT;`);
     return statuses;
   });
   browser = await chromium.launch({ headless: true, ...(process.env.BROWSER_CHANNEL ? { channel: process.env.BROWSER_CHANNEL } : {}) });
-  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const context = await browser.newContext({ storageState: await accounts.get(customer).storageState(), viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
   await check('real browser multi-seat booking, receipt refresh and history', async () => {
     await page.goto(ui + '/events/' + report.eventId);
     for (const seatId of report.seats.slice(10, 12)) await page.locator(`[data-seat-id="${seatId}"]`).click();
-    await page.getByRole('button', { name: /Hold selected seats/ }).click();
+    await page.getByRole('button', { name: /Continue to checkout/ }).click();
     await page.waitForURL('**/checkout');
     await page.reload();
-    await page.getByRole('button', { name: 'Proceed to Payment' }).click();
-    const responsePromise = page.waitForResponse(r => r.url().endsWith('/api/bookings/confirm') && r.request().method() === 'POST');
+    await page.getByRole('button', { name: 'Continue to payment' }).click();
+    const responsePromise = page.waitForResponse(r => r.url().includes('/api/payments/') && r.url().endsWith('/process') && r.request().method() === 'POST');
     await page.getByRole('button', { name: 'Confirm demo booking' }).click();
     const response = await responsePromise;
     assert.equal(response.status(), 200);
-    const booking = await response.json();
+    const booking = (await response.json()).booking;
     report.bookings.push(booking);
     await page.waitForURL('**/booking-confirmed/' + booking.id);
     await page.reload();
@@ -120,16 +123,16 @@ COMMIT;`);
     await page.goto(ui + '/events/' + report.eventId);
     for (const seatId of report.seats.slice(8, 10)) await page.locator(`[data-seat-id="${seatId}"]`).click();
     assert.equal((await hold(report.seats[9], report.users[0])).status, 200);
-    await page.getByRole('button', { name: /Hold selected seats/ }).click();
+    await page.getByRole('button', { name: /Continue to checkout/ }).click();
     await page.getByRole('alert').waitFor();
-    await page.getByRole('button', { name: 'Continue with 1 held seat(s)' }).click();
+    await page.getByRole('button', { name: 'Continue with 1 reserved seat(s)' }).click();
     await page.waitForURL('**/checkout');
-    await page.getByRole('button', { name: 'Proceed to Payment' }).click();
-    const responsePromise = page.waitForResponse(r => r.url().endsWith('/api/bookings/confirm') && r.request().method() === 'POST');
+    await page.getByRole('button', { name: 'Continue to payment' }).click();
+    const responsePromise = page.waitForResponse(r => r.url().includes('/api/payments/') && r.url().endsWith('/process') && r.request().method() === 'POST');
     await page.getByRole('button', { name: 'Confirm demo booking' }).click();
     const response = await responsePromise;
     assert.equal(response.status(), 200);
-    const booking = await response.json();
+    const booking = (await response.json()).booking;
     assert.deepEqual(booking.seatIds, [report.seats[8]]);
     report.bookings.push(booking);
     await page.waitForURL('**/booking-confirmed/' + booking.id);
@@ -182,5 +185,5 @@ SELECT count(*) FROM seat WHERE event_id='${report.eventId}' AND status='CONFIRM
   await save();
   throw error;
 } finally {
-  await browser?.close();
+  await browser?.close(); await disposeAccounts();
 }

@@ -1,3 +1,4 @@
+import { accounts, send, createAccount, disposeAccounts } from './auth-helper.mjs';
 import { chromium } from 'playwright';
 import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
@@ -6,13 +7,13 @@ import assert from 'node:assert/strict';
 
 if (process.env.SEATLOCK_LIVE_TEST !== '1') throw new Error('Set SEATLOCK_LIVE_TEST=1 to create dedicated validation records.');
 const api = 'http://127.0.0.1:8080', ui = 'http://127.0.0.1:5173';
-const demo = '33333333-3333-3333-3333-333333333333';
+let demo;
 const report = { startedAt: new Date().toISOString(), venue: randomUUID(), events: [randomUUID(), randomUUID()], seats: Array.from({ length: 5 }, randomUUID), owner: randomUUID(), checks: [] };
 await mkdir('test-results', { recursive: true });
 const sql = query => execFileSync('docker', ['compose', 'exec', '-T', 'postgres', 'psql', '-U', 'admin', '-d', 'seatlock', '-v', 'ON_ERROR_STOP=1', '-At'], { cwd: '..', input: query, encoding: 'utf8' }).trim();
 const request = async (path, method = 'GET', body) => {
-  const response = await fetch(api + path, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(15000) });
-  return { status: response.status, data: response.status === 204 ? null : await response.json() };
+  const user = body?.userId ?? new URL(path, api).searchParams.get('userId') ?? demo;
+  return send(accounts.get(user), path, method, body);
 };
 const hold = (seat, user) => request(`/api/seats/${seat}/hold`, 'POST', { userId: user });
 const release = (seat, user) => request(`/api/seats/${seat}/hold?userId=${user}`, 'DELETE');
@@ -20,11 +21,12 @@ const confirm = (seatIds, userId, idempotencyKey = randomUUID()) => request('/ap
 const check = async (name, fn) => { await fn(); report.checks.push(name); console.log('PASS', name); };
 let browser;
 try {
+  demo = await createAccount(sql); report.owner = await createAccount(sql);
   sql(`BEGIN;
 INSERT INTO venue VALUES ('${report.venue}', 'Recovery validation arena', 'Mumbai', 5);
-${report.events.map((id, i) => `INSERT INTO event VALUES ('${id}', 'Recovery validation ${i + 1}', '${report.venue}', NOW()-INTERVAL '1 day', NOW()+INTERVAL '7 days');`).join('\n')}
-INSERT INTO app_user VALUES ('${report.owner}', 'recovery-${report.owner}@example.invalid', 'Recovery owner');
+${report.events.map((id, i) => `INSERT INTO event (id,name,venue_id,sale_start_time,event_time) VALUES ('${id}', 'Recovery validation ${i + 1}', '${report.venue}', NOW()-INTERVAL '1 day', NOW()+INTERVAL '7 days');`).join('\n')}
 ${report.seats.map((id, i) => `INSERT INTO seat (id,event_id,seat_number,section,status,version) VALUES ('${id}','${report.events[i === 4 ? 1 : 0]}','R${i + 1}','Recovery','AVAILABLE',0);`).join('\n')}
+INSERT INTO event_price SELECT DISTINCT event_id,section,50000 FROM seat WHERE event_id='${report.events[0]}' OR event_id='${report.events[1]}';
 COMMIT;`);
   await check('server deadline, active ownership, wrong-owner release and immediate rehold', async () => {
     const result = await hold(report.seats[0], report.owner); assert.equal(result.status, 200);
@@ -63,25 +65,25 @@ COMMIT;`);
   browser = await chromium.launch({ headless: true, ...(process.env.BROWSER_CHANNEL ? { channel: process.env.BROWSER_CHANNEL } : {}) });
   await check('empty browser storage recovers a hold, releases it, and books again', async () => {
     assert.equal((await hold(report.seats[2], demo)).status, 200);
-    const context = await browser.newContext(); const page = await context.newPage();
+    const context = await browser.newContext({ storageState: await accounts.get(demo).storageState() }); const page = await context.newPage();
     await page.goto(ui + '/checkout');
     await page.getByRole('heading', { name: 'Checkout' }).waitFor();
     assert.match(await page.locator('main').innerText(), /R3/);
-    await page.getByRole('button', { name: 'Release held seats' }).click();
+    await page.getByRole('button', { name: 'Cancel reservation' }).click();
     await page.waitForURL('**/events/' + report.events[0]);
     assert.equal(sql(`SELECT status FROM seat WHERE id='${report.seats[2]}';`), 'AVAILABLE');
     await page.locator(`[data-seat-id="${report.seats[2]}"]`).click();
-    await page.getByRole('button', { name: /Hold selected seats/ }).click();
+    await page.getByRole('button', { name: /Continue to checkout/ }).click();
     await page.waitForURL('**/checkout');
-    await page.getByRole('button', { name: 'Proceed to Payment' }).click();
-    const response = page.waitForResponse(r => r.url().endsWith('/api/bookings/confirm') && r.request().method() === 'POST');
+    await page.getByRole('button', { name: 'Continue to payment' }).click();
+    const response = page.waitForResponse(r => r.url().includes('/api/payments/') && r.url().endsWith('/process') && r.request().method() === 'POST');
     await page.getByRole('button', { name: 'Confirm demo booking' }).click();
-    const result = await response; assert.equal(result.status(), 200); report.bookingId = (await result.json()).id;
+    const result = await response; assert.equal(result.status(), 200); report.bookingId = (await result.json()).booking.id;
     await page.waitForURL('**/booking-confirmed/' + report.bookingId);
     await context.close();
   });
   await check('new browser context retrieves receipt and history from server', async () => {
-    const context = await browser.newContext(); const page = await context.newPage();
+    const context = await browser.newContext({ storageState: await accounts.get(demo).storageState() }); const page = await context.newPage();
     await page.goto(ui + '/booking-confirmed/' + report.bookingId);
     await page.getByRole('heading', { name: 'Booking confirmed' }).waitFor();
     assert.match(await page.locator('main').innerText(), /R3/);
@@ -103,5 +105,5 @@ COMMIT;`);
 finally {
   report.finishedAt = new Date().toISOString();
   await writeFile('test-results/recovery-validation.json', JSON.stringify(report, null, 2));
-  await browser?.close();
+  await browser?.close(); await disposeAccounts();
 }

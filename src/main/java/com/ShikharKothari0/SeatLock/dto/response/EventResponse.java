@@ -9,6 +9,8 @@ public record EventResponse(
         String venueName,
         String venueCity,
         Instant saleStartTime,
-        Instant eventTime
+        Instant eventTime,
+        String description, String category, String posterUrl, Integer durationMinutes,
+        String publication, Instant saleEndTime
 ) {
 }

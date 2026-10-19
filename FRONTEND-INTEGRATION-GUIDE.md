@@ -1,5 +1,16 @@
 # SeatLock — Frontend Integration Guide
 
+> **Event catalogue milestone (19 October 2026):** richer event content, protected draft editing/private preview and customer discovery filters are implemented. See [event catalogue](docs/event-catalogue.md) for current contracts and validation. Historical plans below do not override this implementation status.
+
+> **Payment milestone (19 October 2026):** durable demo payment attempts, success/decline/delay outcomes, background processing and safe retries are implemented. See [demo payments](docs/demo-payments.md) for contracts, validation and limits. No real money is charged.
+
+
+> **Catalog/pricing milestone:** admin venue/layout creation, draft event publication, sales closure and server-owned price quotes are implemented. See [catalog and pricing](docs/catalog-and-pricing.md) for current contracts, limits and validation. Confirmation now requires a quote ID; older contract descriptions below are historical.
+
+
+> **Completed authentication milestone:** authenticated accounts, session-based reservation ownership and administrator authorization are implemented. See [authentication](docs/authentication.md) for setup, current API contracts, validation and deployment limits. Older milestone descriptions below are historical. Server-owned pricing is covered by the catalog milestone above.
+
+
 > **Reservation API update:** server-backed recovery, exact expiry, hold release, receipt lookup and paginated history are now implemented. The original contracts/checklists below are historical; see [current reservation contracts](docs/reservation-recovery.md).
 
 > **Implementation status — 16 October 2026:** The unchecked lists below describe the original plan, not the current completion state. See [frontend stabilization](docs/frontend-stabilization.md) for fixes, verification and remaining boundaries, and [the end-to-end roadmap](docs/end-to-end-roadmap.md) for the ordered next milestones. In particular, receipts now use saved server responses, payment is explicitly simulated, and developer-console Kafka delivery is unverified.
