@@ -1,0 +1,15 @@
+{
+  "framework": "vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "destination": "https://seatlock-api-cuvu.onrender.com/api/:path*",
+      "source": "/api/:path*"
+    },
+    {
+      "destination": "/index.html",
+      "source": "/:path*"
+    }
+  ]
+}
