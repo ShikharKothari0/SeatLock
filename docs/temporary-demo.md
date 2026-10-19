@@ -12,6 +12,14 @@ Local validation completed: three Kafka configuration tests and the Vercel gener
 - `compose.demo-check.yml`: local 512 MB backend memory check. This does not reproduce Render CPU, latency, networking or cold starts.
 - `SEATLOCK_CAPTURE_DEMO=1`: catalogue test records separate admin/customer browser videos and extra screenshots. These are automated walkthroughs with synthetic records, no real payments.
 
+## Release preparation, 19 October 2026
+
+The release includes the current application features, the Render Docker build and the Singapore Free service definition. The upstream README update has been integrated without rewriting Git history. Environment files, certificates, backups and raw test recordings are excluded from the release source.
+
+Release checks: 17 frontend unit tests, frontend production build and lint, four focused backend configuration/rate-limit tests, and the backend Docker build passed. The local HTTP deployment smoke check also passed (proxy routing, SPA reload, CSRF, CORS, administrator restrictions and cookie flags).
+
+An additional check found that the previous 128 MiB Java metaspace cap exhausted after extended local use even though the container was not killed. The deployment settings now allow 192 MiB heap, 192 MiB metaspace and 32 MiB code cache, within the same 512 MiB container budget. Java exits on an out-of-memory error rather than continuing to serve in a degraded state. All five live catalogue/booking checks passed after recreation with the revised settings; a memory snapshot was 345.3 MiB of 512 MiB (not a peak measurement). The revised allocation still needs long-duration and cloud validation.
+
 ## Account and service setup
 
 1. Create an [Aiven account](https://console.aiven.io/). Select explicitly **Free** PostgreSQL, Valkey and Kafka services, one of each. Avoid a paid-plan trial. Record the assigned regions before selecting the backend region. Aiven free services can shut down after inactivity; check their state before recording.
