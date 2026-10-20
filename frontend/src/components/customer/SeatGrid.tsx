@@ -1,11 +1,14 @@
-// SeatGrid - 10x10 seat grid with polling, row labels, and legend
+// Section-based seat map with availability polling and event-specific prices.
 
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../lib/api';
 import type { SeatResponse } from '../../types/api';
-import { SEAT_POLL_INTERVAL_MS, ROW_LETTERS } from '../../lib/constants';
+import { SEAT_POLL_INTERVAL_MS } from '../../lib/constants';
 import { SeatCell } from './SeatCell';
 import { LoadingSpinner } from '../common/LoadingSpinner';
+import api from '../../lib/api';
+import { SectionSeatMap } from './SectionSeatMap';
+import type { SectionLayout } from '../../lib/seatLayout';
 import { StatusBadge } from '../common/StatusBadge';
 
 interface SeatGridProps {
@@ -26,7 +29,9 @@ export function SeatGrid({ eventId, selectedSeatIds, heldSeatIds, onSeatToggle, 
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 
-  if (isLoading) {
+  const prices = useQuery({ queryKey: ['prices', eventId], queryFn: () => api.get<{sections: SectionLayout[]}>(`/events/${eventId}/prices`).then(r=>r.data) });
+
+  if (isLoading || prices.isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-12 gap-4">
         <LoadingSpinner size="lg" ariaLabel="Loading seat map" />
@@ -35,7 +40,7 @@ export function SeatGrid({ eventId, selectedSeatIds, heldSeatIds, onSeatToggle, 
     );
   }
 
-  if (error) {
+  if (error || prices.error) {
     return (
       <div className="flex flex-col items-center justify-center py-12 gap-4 text-center">
         <StatusBadge status="FAILED" label="Failed to load seats" />
@@ -43,7 +48,7 @@ export function SeatGrid({ eventId, selectedSeatIds, heldSeatIds, onSeatToggle, 
           We couldn’t load the seat map. Please try again.
         </p>
         <button
-          onClick={() => refetch()}
+          onClick={() => { void refetch(); void prices.refetch(); }}
           className="mt-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors"
         >
           Retry
@@ -61,80 +66,11 @@ export function SeatGrid({ eventId, selectedSeatIds, heldSeatIds, onSeatToggle, 
     );
   }
 
-  // Sort seats by row then column (A1, A2, ..., A10, B1, B2, ...)
-  const sortedSeats = [...seats].sort((a, b) => {
-    const aNum = parseInt(a.seatNumber.match(/(\d+)$/)?.[1] || '0', 10);
-    const bNum = parseInt(b.seatNumber.match(/(\d+)$/)?.[1] || '0', 10);
-    return aNum - bNum;
-  });
-
-  // Group seats by row (10 seats per row)
-  const rows: Record<string, SeatResponse[]> = {};
-  for (const seat of sortedSeats) {
-    const match = seat.seatNumber.match(/(\d+)$/);
-    if (!match) continue;
-    const seatIndex = parseInt(match[1], 10) - 1;
-    const rowIndex = Math.floor(seatIndex / 10);
-    const rowLetter = ROW_LETTERS[rowIndex] || 'A';
-    if (!rows[rowLetter]) rows[rowLetter] = [];
-    rows[rowLetter].push(seat);
-  }
-
   return (
     <div className="space-y-4">
-      {/* Stage indicator */}
-      <div className="flex items-center justify-center">
-        <div className="w-full max-w-md px-4">
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-dashed border-slate-300 dark:border-slate-700" />
-            </div>
-            <div className="relative flex justify-center">
-              <span className="bg-white dark:bg-slate-950 px-3 text-xs font-mono text-slate-500 uppercase tracking-wider">
-                STAGE
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Seat Grid */}
-      <div className="overflow-x-auto pb-3">
-        <div className="space-y-2 w-max mx-auto">
-          {ROW_LETTERS.map((rowLetter) => {
-            const rowSeats = rows[rowLetter] || [];
-            return (
-              <div key={rowLetter} className="flex items-center gap-2">
-                <span className="w-6 text-right text-xs font-mono text-slate-500 select-none">
-                  {rowLetter}
-                </span>
-                <div className="flex gap-2">
-                  {rowSeats.map((seat) => (
-                    <SeatCell
-                      key={seat.id}
-                      seat={seat}
-                      disabled={disabled}
-                      isSelected={selectedSeatIds.includes(seat.id)}
-                      isHeld={heldSeatIds.includes(seat.id)}
-                      onToggle={() => onSeatToggle(seat.id)}
-                    />
-                  ))}
-                  {/* Fill empty slots if row has fewer than 10 seats */}
-                  {rowSeats.length < 10 && (
-                    <>
-                      {Array.from({ length: 10 - rowSeats.length }).map((_, i) => (
-                        <div key={`empty-${i}`} className="w-8 h-8" />
-                      ))}
-                    </>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <p className="text-center text-xs text-slate-500 sm:hidden">Scroll the seat map sideways to see all columns.</p>
+      <SectionSeatMap seats={seats} layouts={prices.data?.sections ?? []} renderSeat={(seat,row,column)=>(
+        <SeatCell seat={seat} row={row} column={column} disabled={disabled} isSelected={selectedSeatIds.includes(seat.id)} isHeld={heldSeatIds.includes(seat.id)} onToggle={()=>onSeatToggle(seat.id)} />
+      )} />
       {/* Legend */}
       <div className="flex flex-wrap justify-center gap-4 text-sm text-slate-600 dark:text-slate-400">
         <div className="flex items-center gap-1.5">

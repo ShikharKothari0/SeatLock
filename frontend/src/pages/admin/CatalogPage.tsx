@@ -3,6 +3,7 @@ import { useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../../lib/api';
 import { AdminLayout } from '../../components/admin/AdminLayout';
+import { SectionSeatMap } from '../../components/customer/SectionSeatMap';
 import { money } from '../../lib/money';
 type Venue = { id: string; name: string; city: string; timezone: string; layout_seats: number };
 type Event = { id: string; name: string; venue_name: string; publication: string; archived: boolean; event_time: string; sale_end_time: string; fee_minor: number; prices: { section: string; amountMinor: number }[] };
@@ -14,11 +15,15 @@ function minor(value: string) {
 export function CatalogPage() {
   const queries = useQueryClient();
   const [venue, setVenue] = useState('');
-  const [sections, setSections] = useState([{ name: 'Standard', prefix: 'A', seats: 20 }]);
+  const [sections, setSections] = useState([{ name: 'Standard', prefix: 'A', seats: 20, seatsPerRow: 10, centreAisle: false }]);
   const [busy, setBusy] = useState(false); const [notice, setNotice] = useState(''); const [error, setError] = useState('');
   const venues = useQuery({ queryKey: ['catalog-venues'], queryFn: () => api.get<Venue[]>('/admin/catalog/venues').then(r => r.data) });
   const events = useQuery({ queryKey: ['catalog-events'], queryFn: () => api.get<Event[]>('/admin/catalog/events').then(r => r.data) });
   const layout = useQuery({ queryKey: ['catalog-sections', venue], enabled: !!venue, queryFn: () => api.get<{ section: string; seats: number }[]>(`/admin/catalog/venues/${venue}/sections`).then(r => r.data) });
+  function moveSection(index: number, direction: number) {
+    setSections(current => { const next=[...current]; [next[index],next[index+direction]]=[next[index+direction],next[index]]; return next; });
+  }
+  const previewSeats=sections.flatMap((section,index)=>Array.from({length:Math.max(0,Math.min(1000,Math.floor(section.seats)||0))},(_,i)=>({id:`${index}-${i}`,section:section.name || `Section ${index+1}`,seatNumber:`${section.prefix || 'S'}${i+1}`})));
   async function run(action: () => Promise<void>) {
     setBusy(true); setNotice(''); setError('');
     try { await action(); await queries.invalidateQueries({ queryKey: ['catalog-events'] }); await queries.invalidateQueries({ queryKey: ['catalog-venues'] }); await queries.invalidateQueries({ queryKey: ['events'] }); }
@@ -29,7 +34,7 @@ export function CatalogPage() {
     void run(async () => {
       const result = await api.post('/admin/catalog/venues', { name: form.get('name'), city: form.get('city'), address: form.get('address'), timezone: form.get('timezone'), sections });
       setVenue(result.data.id); setNotice('Venue and reusable seating layout created.');
-      element.reset(); setSections([{ name: 'Standard', prefix: 'A', seats: 20 }]);
+      element.reset(); setSections([{ name: 'Standard', prefix: 'A', seats: 20, seatsPerRow: 10, centreAisle: false }]);
     });
   }
   function createEvent(event: FormEvent<HTMLFormElement>) {
@@ -52,14 +57,21 @@ export function CatalogPage() {
       <label className="block">City<input className={field} name="city" required maxLength={255} /></label>
       <label className="block">Address<input className={field} name="address" required maxLength={500} /></label>
       <label className="block">Venue timezone<input className={field} name="timezone" defaultValue="Asia/Kolkata" required /></label>
+      <p className="text-sm">Arrange sections from front to back, starting nearest the stage.</p>
       {sections.map((section, index) => <fieldset key={index} className="grid sm:grid-cols-3 gap-3"><legend>Section {index + 1}</legend>
         <label>Section name<input className={field} required maxLength={50} value={section.name} onChange={e => setSections(sections.map((s,i) => i===index ? { ...s, name: e.target.value } : s))} /></label>
         <label>Seat prefix<input className={field} required pattern="[A-Za-z0-9]{1,8}" value={section.prefix} onChange={e => setSections(sections.map((s,i) => i===index ? { ...s, prefix: e.target.value } : s))} /></label>
         <label>Seat count<input className={field} required type="number" min={1} max={1000} value={section.seats} onChange={e => setSections(sections.map((s,i) => i===index ? { ...s, seats: Number(e.target.value) } : s))} /></label>
+        <label>Seats per row<input className={field} type="number" required min={1} max={20} value={section.seatsPerRow} onChange={e=>setSections(sections.map((s,i)=>i===index?{...s,seatsPerRow:Number(e.target.value)}:s))} /></label>
+        <label className="flex items-center gap-2"><input type="checkbox" checked={section.centreAisle} onChange={e=>setSections(sections.map((s,i)=>i===index?{...s,centreAisle:e.target.checked}:s))} />Centre aisle</label>
+        <div className="flex gap-3"><button type="button" disabled={busy || index===0} onClick={()=>moveSection(index,-1)} aria-label={`Move section ${index+1} forward`}>Move forward</button><button type="button" disabled={busy || index===sections.length-1} onClick={()=>moveSection(index,1)} aria-label={`Move section ${index+1} back`}>Move back</button></div>
         <button type="button" disabled={busy || sections.length === 1} aria-label={`Delete section ${index + 1}`} onClick={() => setSections(sections.filter((_, i) => i !== index))} className="text-red-700 dark:text-red-400 disabled:opacity-50">Delete section</button>
       </fieldset>)}
-      <button type="button" disabled={busy || sections.length>=20} onClick={() => setSections([...sections,{ name: '', prefix: '', seats: 20 }])}>Add section</button>
+      <button type="button" disabled={busy || sections.length>=20} onClick={() => setSections([...sections,{ name: '', prefix: '', seats: 20, seatsPerRow: 10, centreAisle: false }])}>Add section</button>
       <p className="text-sm">Keep at least one section in the seating layout.</p>
+      <details className="rounded-lg border p-3" open><summary className="cursor-pointer font-semibold">Seating preview</summary>
+        <SectionSeatMap seats={previewSeats} layouts={sections.map((s,i)=>({section:s.name || `Section ${i+1}`,displayOrder:i,seatsPerRow:s.seatsPerRow,centreAisle:s.centreAisle}))} renderSeat={seat=><span className="flex min-w-10 h-10 px-1 items-center justify-center rounded-md bg-green-500 text-xs text-slate-950">{seat.seatNumber}</span>} />
+      </details>
       <button disabled={busy} className="block bg-indigo-700 text-white rounded px-4 py-2">Create venue</button>
     </form>
     <form onSubmit={createEvent} className="space-y-4 border rounded-xl p-5">

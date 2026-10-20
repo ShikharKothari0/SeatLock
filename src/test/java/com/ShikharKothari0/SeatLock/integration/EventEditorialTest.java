@@ -121,6 +121,21 @@ class EventEditorialTest {
         mvc.perform(post("/api/admin/catalog/events/"+ended+"/reopen").with(admin()).with(csrf())).andExpect(status().isConflict());
         assertEquals("CLOSED",jdbc.queryForObject("SELECT publication FROM event WHERE id=?",String.class,ended));
     }
+    @Test void sectionLayoutsAreValidatedAndCopiedToEvents() throws Exception {
+        String body=json.writeValueAsString(Map.of("name","Section hall","city","Pune","address","Test","timezone","Asia/Kolkata","sections",List.of(
+            Map.of("name","VIP","prefix","V","seats",7,"seatsPerRow",4,"centreAisle",true),
+            Map.of("name","Balcony","prefix","B","seats",5,"seatsPerRow",3,"centreAisle",false))));
+        mvc.perform(post("/api/admin/catalog/venues").with(admin()).with(csrf()).contentType("application/json").content(body.replace("\"seatsPerRow\":4","\"seatsPerRow\":0"))).andExpect(status().isBadRequest());
+        var result=mvc.perform(post("/api/admin/catalog/venues").with(admin()).with(csrf()).contentType("application/json").content(body)).andExpect(status().isCreated()).andReturn();
+        UUID venue=UUID.fromString(json.readTree(result.getResponse().getContentAsString()).get("id").asText());
+        mvc.perform(get("/api/admin/catalog/venues/"+venue+"/sections").with(admin())).andExpect(jsonPath("$[0].section").value("VIP")).andExpect(jsonPath("$[0].seatsPerRow").value(4));
+        UUID event=catalog.createEvent(new com.ShikharKothari0.SeatLock.service.CatalogService.EventInput(venue,"Layout event",java.time.Instant.now().minusSeconds(60),java.time.Instant.now().plusSeconds(3600),java.time.Instant.now().plusSeconds(7200),0,List.of(new com.ShikharKothari0.SeatLock.service.CatalogService.Price("VIP",89900L),new com.ShikharKothari0.SeatLock.service.CatalogService.Price("Balcony",49900L))),OWNER);
+        mvc.perform(get("/api/events/"+event+"/prices")).andExpect(status().isNotFound());
+        catalog.transition(event,"PUBLISHED",OWNER);
+        jdbc.update("UPDATE venue_section SET seats_per_row=9 WHERE venue_id=?",venue);
+        mvc.perform(get("/api/events/"+event+"/prices")).andExpect(status().isOk()).andExpect(jsonPath("$.sections[0].section").value("VIP")).andExpect(jsonPath("$.sections[0].seatsPerRow").value(4)).andExpect(jsonPath("$.sections[0].centreAisle").value(true)).andExpect(jsonPath("$.sections[1].amountMinor").value(49900));
+        assertEquals(12,jdbc.queryForObject("SELECT count(*) FROM seat WHERE event_id=?",Integer.class,event));
+    }
     String contentBody(long revision) throws Exception {
         return json.writeValueAsString(Map.of("revision",revision,"description","Updated description","category","Theatre","posterUrl","https://example.com/new.png"));
     }

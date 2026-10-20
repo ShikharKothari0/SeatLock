@@ -19,7 +19,7 @@ async function fixture(options = {}) {
   const page = await context.newPage();
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
-  const seats = Array.from({ length: 100 }, (_, index) => ({ id: `seat-${index + 1}`, seatNumber: `A${index + 1}`, section: 'Section A', status: 'AVAILABLE' }));
+  const seats = options.seats ?? Array.from({ length: 100 }, (_, index) => ({ id: `seat-${index + 1}`, seatNumber: `A${index + 1}`, section: 'Section A', status: 'AVAILABLE' }));
   const holds = [], confirmations = [];
   const active = new Map();
   let receipt;
@@ -37,7 +37,7 @@ async function fixture(options = {}) {
     else if (url.pathname === '/api/events') data = options.catalog ?? [event];
     else if (url.pathname === '/api/events/event-1') data = event;
     else if (url.pathname === '/api/events/event-1/seats') data = seats;
-    else if (url.pathname === '/api/events/event-1/prices') data = { currency: 'INR', feeMinor: 0, sections: [{ section: 'Section A', amountMinor: 50000 }] };
+    else if (url.pathname === '/api/events/event-1/prices') data = { currency: 'INR', feeMinor: 0, sections: options.sections ?? [{ section: 'Section A', amountMinor: 50000 }] };
     else if (url.pathname === '/api/payments') {
       const payload = request.postDataJSON();
       if (!payments.has(payload.idempotencyKey)) payments.set(payload.idempotencyKey, {
@@ -114,6 +114,26 @@ try {
   }
   browser = await chromium.launch({ headless: true, ...(process.env.BROWSER_CHANNEL ? { channel: process.env.BROWSER_CHANNEL } : {}) });
   await mkdir('test-results', { recursive: true });
+  await run('section layout preserves identity, price, status and mobile scrolling', async () => {
+    const seats = ['Standard','Premium'].flatMap((section,j)=>Array.from({length:13},(_,i)=>({id:`section-${j}-${i}`,section,seatNumber:`${j?'P':'S'}${i+1}`,status:i===0?'CONFIRMED':'AVAILABLE'})));
+    const f=await fixture({seats,sections:[{section:'Premium',displayOrder:0,seatsPerRow:6,centreAisle:true,amountMinor:89900},{section:'Standard',displayOrder:1,seatsPerRow:10,centreAisle:false,amountMinor:49900}]});
+    try {
+      await f.page.goto(base+'/events/event-1');
+      await f.page.getByRole('region',{name:'Premium seating',exact:true}).waitFor();
+      const regions=f.page.locator('section[aria-label$=" seating"]');
+      assert.deepEqual(await regions.evaluateAll(els=>els.map(e=>e.getAttribute('aria-label'))),['Premium seating','Standard seating']);
+      assert.ok((await regions.first().innerText()).includes('899'));
+      assert.equal(await regions.first().locator('[data-seat-id]').count(),13);
+      assert.equal(await f.page.locator('[data-seat-id="section-1-6"]').getAttribute('data-seat-row'),'B');
+      assert.equal(await f.page.locator('[data-seat-id="section-1-0"]').isDisabled(),true);
+      await f.page.locator('[data-seat-id="section-1-1"]').click();
+      assert.equal(await f.page.locator('[data-seat-id="section-1-1"]').getAttribute('aria-pressed'),'true');
+      await f.page.screenshot({path:'test-results/sections-desktop.png',fullPage:true});
+      await f.page.setViewportSize({width:390,height:844});
+      assert.ok(await f.page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1));
+      await f.page.screenshot({path:'test-results/sections-mobile.png',fullPage:true});
+    } finally {await f.context.close();}
+  });
   await run('multi-seat booking, real receipt, refresh, history, unknown ID', async () => {
     const f = await fixture();
     try {

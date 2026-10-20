@@ -16,6 +16,26 @@ Flyway V9 adds description, category, poster URL, optional duration and revision
 
 Descriptions are plain text, limited to 5,000 characters. Posters are optional external HTTPS image URLs without embedded credentials, limited to 2,048 characters. The backend stores the URL and does not fetch the image. Browsers load images without a referrer and show a placeholder when a poster is missing or fails. Administrators should use an image host they trust; uploads, image processing and object storage are not included.
 
+## Section-wise seating
+
+New venue sections are ordered front-to-back using Move forward / Move back.
+Each section supports 1–20 seats per row and an optional centre aisle; a live
+preview uses the same layout component as the customer seat map. Seat labels
+remain the original prefix plus number. Partial final rows are supported.
+
+Flyway V11 adds venue and event section layout metadata. Event creation copies
+the venue arrangement into its own snapshot. Existing seat IDs, statuses,
+bookings and prices are untouched. Existing sections default to alphabetical
+order, ten seats per row and no aisle because their original spatial arrangement
+was never recorded. These defaults are a schematic presentation, not a claim
+about a real venue's physical layout. Editing saved venue geometry remains outside
+this feature; create a new venue for a different arrangement.
+
+The public prices endpoint also returns section order, row width and aisle
+settings. Customer seat maps show separate named blocks with event-specific
+prices, natural seat-number ordering and horizontal scrolling within wide
+sections on mobile. Sold and reserved seats remain non-selectable.
+
 ## Customer discovery
 
 The home page combines event/venue-name search, city, category and inclusive from/to dates. Filters are stored in the URL and survive refresh. Dates use the browser's local timezone, stated in the form. Clear filters restores the default view. Results are ordered by event start time.

@@ -1,7 +1,7 @@
 // SeatCell - Individual seat visualization with status-based styling
 
 import type { SeatResponse } from '../../types/api';
-import { ROW_LETTERS } from '../../lib/constants';
+
 
 interface SeatCellProps {
   seat: SeatResponse;
@@ -9,27 +9,12 @@ interface SeatCellProps {
   isHeld: boolean;
   onToggle: () => void;
   disabled?: boolean;
+  row?: string;
+  column?: number;
 }
 
-function getSeatRow(seatNumber: string): string {
-  const match = seatNumber.match(/(\d+)$/);
-  if (!match) return 'A';
-  const seatIndex = parseInt(match[1], 10) - 1;
-  const rowIndex = Math.floor(seatIndex / 10);
-  return ROW_LETTERS[rowIndex] || 'A';
-}
-
-function getSeatCol(seatNumber: string): string {
-  const match = seatNumber.match(/(\d+)$/);
-  if (!match) return '1';
-  const seatIndex = parseInt(match[1], 10) - 1;
-  const colIndex = (seatIndex % 10) + 1;
-  return String(colIndex);
-}
-
-export function SeatCell({ seat, isSelected, isHeld, onToggle, disabled = false }: SeatCellProps) {
-  const row = getSeatRow(seat.seatNumber);
-  const col = getSeatCol(seat.seatNumber);
+export function SeatCell({ seat, row = 'A', column = 1, isSelected, isHeld, onToggle, disabled = false }: SeatCellProps) {
+  const col = String(column);
 
   const isAvailable = seat.status === 'AVAILABLE';
   const isHeldByApi = seat.status === 'HELD';
@@ -40,7 +25,7 @@ export function SeatCell({ seat, isSelected, isHeld, onToggle, disabled = false 
   const isActuallyAvailable = isAvailable && !isHeld;
 
   // Base styles
-  const baseClasses = 'w-8 h-8 rounded-full transition-all duration-150 ease-out flex items-center justify-center cursor-pointer select-none';
+  const baseClasses = 'min-w-10 h-10 px-1 rounded-md transition-all duration-150 ease-out flex items-center justify-center cursor-pointer select-none';
 
   let statusClasses = '';
   let tooltip = '';
@@ -73,15 +58,15 @@ export function SeatCell({ seat, isSelected, isHeld, onToggle, disabled = false 
       disabled={disabled || !isInteractive}
       aria-pressed={isSelected}
       className={`${baseClasses} ${statusClasses}`}
-      title={tooltip}
-      aria-label={tooltip}
+      title={`${seat.section} · ${seat.seatNumber} · ${tooltip}`}
+      aria-label={`Seat ${seat.seatNumber}, ${seat.section}, row ${row}: ${tooltip}`}
       data-seat-id={seat.id}
       data-seat-status={seat.status}
       data-seat-row={row}
       data-seat-col={col}
     >
       <span className="text-[10px] font-mono font-bold text-slate-900 dark:text-white drop-shadow">
-        {col}
+        {seat.seatNumber}
       </span>
     </button>
   );

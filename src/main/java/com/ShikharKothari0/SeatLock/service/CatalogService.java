@@ -15,7 +15,10 @@ public class CatalogService {
     private final JdbcTemplate jdbc;
     public CatalogService(JdbcTemplate jdbc) { this.jdbc=jdbc; }
     public record Section(@NotBlank @Size(max=50) String name, @Pattern(regexp="[A-Za-z0-9]{1,8}") @NotNull String prefix,
-                          @Min(1) @Max(1000) int seats) {}
+                          @Min(1) @Max(1000) int seats, @Min(1) @Max(20) Integer seatsPerRow, Boolean centreAisle) {
+        public Section(String name,String prefix,int seats) { this(name,prefix,seats,10,false); }
+        public Section { if(seatsPerRow==null) seatsPerRow=10; if(centreAisle==null) centreAisle=false; }
+    }
     public record VenueInput(@NotBlank @Size(max=255) String name, @NotBlank @Size(max=255) String city,
         @NotBlank @Size(max=500) String address, @NotBlank String timezone, @NotEmpty @Size(max=20) List<@Valid Section> sections) {}
     public record Price(@NotBlank @Size(max=50) String section, @NotNull @Min(0) @Max(100000000) Long amountMinor) {}
@@ -103,11 +106,11 @@ public class CatalogService {
         events.forEach(event->event.put("prices",jdbc.queryForList("SELECT section,amount_minor AS \"amountMinor\" FROM event_price WHERE event_id=? ORDER BY section",event.get("id"))));
         return events;
     }
-    public List<Map<String,Object>> sections(UUID venue) { return jdbc.queryForList("SELECT section,count(*) AS seats FROM venue_seat WHERE venue_id=? GROUP BY section ORDER BY section",venue); }
+    public List<Map<String,Object>> sections(UUID venue) { return jdbc.queryForList("SELECT s.section,count(*) AS seats,l.seats_per_row AS \"seatsPerRow\",l.centre_aisle AS \"centreAisle\" FROM venue_seat s JOIN venue_section l ON l.venue_id=s.venue_id AND l.section=s.section WHERE s.venue_id=? GROUP BY s.section,l.display_order,l.seats_per_row,l.centre_aisle ORDER BY l.display_order,s.section",venue); }
     public Map<String,Object> prices(UUID event) {
         visible(event);
         return Map.of("currency","INR","feeMinor",jdbc.queryForObject("SELECT fee_minor FROM event WHERE id=?",Long.class,event),
-            "sections",jdbc.queryForList("SELECT section,amount_minor AS \"amountMinor\" FROM event_price WHERE event_id=? ORDER BY section",event));
+            "sections",jdbc.queryForList("SELECT p.section,p.amount_minor AS \"amountMinor\",COALESCE(l.display_order,0) AS \"displayOrder\",COALESCE(l.seats_per_row,10) AS \"seatsPerRow\",COALESCE(l.centre_aisle,false) AS \"centreAisle\" FROM event_price p LEFT JOIN event_section l ON l.event_id=p.event_id AND l.section=p.section WHERE p.event_id=? ORDER BY l.display_order,p.section",event));
     }
     public void visible(UUID event) {
         if (!Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM event WHERE id=? AND publication<>'DRAFT' AND NOT archived)",Boolean.class,event)))
@@ -124,6 +127,10 @@ public class CatalogService {
         if(total>5000) throw new IllegalArgumentException("At most 5000 seats per venue");
         UUID id=UUID.randomUUID();
         jdbc.update("INSERT INTO venue(id,name,city,total_capacity,address,timezone) VALUES (?,?,?,?,?,?)",id,input.name().strip(),input.city().strip(),total,input.address().strip(),input.timezone());
+        for(int order=0;order<input.sections().size();order++) {
+            var section=input.sections().get(order);
+            jdbc.update("INSERT INTO venue_section(venue_id,section,display_order,seats_per_row,centre_aisle) VALUES (?,?,?,?,?)",id,section.name().strip(),order,section.seatsPerRow(),section.centreAisle());
+        }
         for(var section:input.sections()) for(int number=1;number<=section.seats();number++)
             jdbc.update("INSERT INTO venue_seat(id,venue_id,seat_number,section) VALUES (?,?,?,?)",UUID.randomUUID(),id,section.prefix()+number,section.name().strip());
         audit(actor,"CREATE_VENUE",id); return id;
@@ -139,6 +146,7 @@ public class CatalogService {
         if(!prices.keySet().equals(expected)) throw new IllegalArgumentException("Provide exactly one price for every venue section");
         UUID id=UUID.randomUUID();
         jdbc.update("INSERT INTO event(id,name,venue_id,sale_start_time,sale_end_time,event_time,publication,fee_minor) VALUES (?,?,?,?,?,?,'DRAFT',?)",id,input.name().strip(),input.venueId(),java.sql.Timestamp.from(input.saleStartTime()),java.sql.Timestamp.from(input.saleEndTime()),java.sql.Timestamp.from(input.eventTime()),input.feeMinor());
+        jdbc.update("INSERT INTO event_section(event_id,section,display_order,seats_per_row,centre_aisle) SELECT ?,section,display_order,seats_per_row,centre_aisle FROM venue_section WHERE venue_id=?",id,input.venueId());
         for(var seat:seats) jdbc.update("INSERT INTO seat(id,event_id,seat_number,section,status) VALUES (?,?,?,?,'AVAILABLE')",UUID.randomUUID(),id,seat.get("seat_number"),seat.get("section"));
         prices.forEach((section,amount)->jdbc.update("INSERT INTO event_price VALUES (?,?,?)",id,section,amount));
         audit(actor,"CREATE_EVENT",id); return id;

@@ -48,7 +48,16 @@ try {
   assert.equal(await spinner.evaluate(el=>getComputedStyle(el).borderTopWidth),'0px');
   await page.screenshot({path:'test-results/polish-spinner.png'});
   await page.goto(base+'/admin/catalog');
+  await page.getByLabel('Seats per row',{exact:true}).fill('6');
+  await page.getByLabel('Centre aisle',{exact:true}).check();
   await page.getByRole('button',{name:'Add section',exact:true}).click();
+  await page.getByLabel('Section name',{exact:true}).nth(1).fill('Premium');
+  await page.getByLabel('Seat prefix',{exact:true}).nth(1).fill('P');
+  await page.getByRole('button',{name:'Move section 2 forward',exact:true}).click();
+  assert.equal(await page.getByLabel('Section name',{exact:true}).first().inputValue(),'Premium');
+  await page.getByRole('button',{name:'Move section 1 back',exact:true}).click();
+  assert.equal(await page.getByLabel('Seats per row',{exact:true}).first().inputValue(),'6');
+  await page.screenshot({path:'test-results/section-venue-preview.png',fullPage:true});
   await page.getByRole('button',{name:'Delete section 2',exact:true}).click();
   assert.equal(await page.getByRole('button',{name:'Delete section 1',exact:true}).isDisabled(),true);
   await page.getByLabel('Venue name',{exact:true}).fill('Demo hall');
@@ -62,6 +71,8 @@ try {
   await page.getByText('Venue and reusable seating layout created.').waitFor();
   assert.equal(await page.getByLabel('Venue name',{exact:true}).inputValue(),'');
   assert.equal(postedVenue.sections.length,1);
+  assert.equal(postedVenue.sections[0].seatsPerRow,6);
+  assert.equal(postedVenue.sections[0].centreAisle,true);
   await page.getByLabel('Event name',{exact:true}).fill('Draft');
   await page.getByLabel('Sales start',{exact:true}).fill('2030-01-01T12:00');
   await page.getByLabel('Sales close',{exact:true}).fill('2030-01-02T12:00');
