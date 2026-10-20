@@ -144,16 +144,22 @@ public class CatalogService {
         audit(actor,"CREATE_EVENT",id); return id;
     }
     @Transactional public void transition(UUID event,String next,UUID actor) {
-        var rows=jdbc.queryForList("SELECT publication,event_time FROM event WHERE id=? FOR UPDATE",event);
+        var rows=jdbc.queryForList("SELECT publication,event_time,sale_end_time,archived FROM event WHERE id=? FOR UPDATE",event);
         if(rows.isEmpty()) throw new ResourceNotFoundException("Event not found");
         String current=(String)rows.getFirst().get("publication");
-        if (!(current.equals("DRAFT")&&next.equals("PUBLISHED") || current.equals("PUBLISHED")&&next.equals("CLOSED")))
-            throw new SeatNotAvailableException("Only draft publication and published-event sales closure are supported");
+        boolean reopening=next.equals("REOPEN");
+        if (Boolean.TRUE.equals(rows.getFirst().get("archived"))) throw new SeatNotAvailableException("Archived events cannot reopen sales");
+        if (!(current.equals("DRAFT")&&next.equals("PUBLISHED") || current.equals("PUBLISHED")&&next.equals("CLOSED") || current.equals("CLOSED")&&reopening))
+            throw new SeatNotAvailableException("This event cannot make the requested sales transition");
+        if(reopening) {
+            if(!((java.sql.Timestamp)rows.getFirst().get("sale_end_time")).toInstant().isAfter(Instant.now())) throw new SeatNotAvailableException("The scheduled sales window has ended");
+            next="PUBLISHED";
+        }
         if(next.equals("PUBLISHED")) {
             if(!((java.sql.Timestamp)rows.getFirst().get("event_time")).toInstant().isAfter(Instant.now())) throw new SeatNotAvailableException("Event time has passed");
             if(jdbc.queryForObject("SELECT count(*) FROM seat s LEFT JOIN event_price p ON p.event_id=s.event_id AND p.section=s.section WHERE s.event_id=? AND p.amount_minor IS NULL",Integer.class,event)>0)
                 throw new SeatNotAvailableException("Every section requires a price");
         }
-        jdbc.update("UPDATE event SET publication=?,revision=revision+1 WHERE id=?",next,event); audit(actor,next,event);
+        jdbc.update("UPDATE event SET publication=?,revision=revision+1 WHERE id=?",next,event); audit(actor,reopening ? "REOPEN" : next,event);
     }
 }

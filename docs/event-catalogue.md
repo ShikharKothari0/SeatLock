@@ -43,7 +43,11 @@ Subsequent milestone: [PostgreSQL persistence and backup/restore](database-recov
 
 Administrators can use **Edit details and preview** to update descriptions, categories and HTTPS poster URLs after publication, including closed or archived events. Titles, duration, venue, schedule, prices and seats remain locked. Revision checks reject stale saves. The content endpoint accepts only the permitted fields and rejects additional fields sent by a client.
 
-**Archive event** closes sales and hides the event from public lists, details, seat lists and price lookup. Booking receipts and history remain accessible to their owners. Archive is not a return to draft; reopening is not provided. Existing pending reservations cannot complete after sales close, but can be released or expire normally.
+**Archive event** closes sales and hides the event from public lists, details, seat lists and price lookup. Booking receipts and history remain accessible to their owners. Archive is not a return to draft; archived events cannot reopen. Existing pending reservations cannot complete after sales close, but can be released or expire normally.
+
+**Reopen sales** restores a manually closed, non-archived event to published status when the event and its sales closing time are still in the future. It preserves the original sales opening time, all seats, bookings and prices. The administrator-only, CSRF-protected `POST /api/admin/catalog/events/{id}/reopen` endpoint checks eligibility under a database row lock, increments the revision and records a `REOPEN` audit entry. It does not extend the sales window or restore expired reservations.
+
+During venue creation, **Delete section** removes an unsaved layout section; at least one section is required. Successful venue creation clears its fields and resets the layout to the Standard section while selecting the new venue for draft creation. Successful event creation clears its form and venue selection. Failed submissions keep the entered values. Timezone and booking-fee defaults are retained.
 
 **Delete draft** removes an unpublished event, its section prices and generated seats. It retains the reusable venue layout and audit trail. Published/closed/archived events and drafts containing reservation records cannot be deleted. Both actions ask for confirmation in the interface and require administrator authentication and CSRF protection.
 

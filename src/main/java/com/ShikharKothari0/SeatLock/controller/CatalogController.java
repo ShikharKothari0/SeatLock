@@ -23,4 +23,5 @@ public class CatalogController {
     public Object event(@Valid @RequestBody CatalogService.EventInput input,Principal actor) { return Map.of("id",catalog.createEvent(input,UUID.fromString(actor.getName()))); }
     @PostMapping("/events/{id}/publish") public void publish(@PathVariable UUID id,Principal actor) { catalog.transition(id,"PUBLISHED",UUID.fromString(actor.getName())); }
     @PostMapping("/events/{id}/close") public void close(@PathVariable UUID id,Principal actor) { catalog.transition(id,"CLOSED",UUID.fromString(actor.getName())); }
+    @PostMapping("/events/{id}/reopen") public void reopen(@PathVariable UUID id,Principal actor) { catalog.transition(id,"REOPEN",UUID.fromString(actor.getName())); }
 }

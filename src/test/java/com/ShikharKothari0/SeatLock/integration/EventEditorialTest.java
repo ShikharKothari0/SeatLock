@@ -88,6 +88,39 @@ class EventEditorialTest {
         assertEquals(12345,jdbc.queryForObject("SELECT amount_minor FROM event_price WHERE event_id=?",Integer.class,event));
     }
 
+    @Test void reopeningPreservesInventoryBookingsAndPrices() throws Exception {
+        UUID event=event(),seat=seat(event);catalog.transition(event,"PUBLISHED",OWNER);holds.holdSeat(seat,OWNER);
+        var quote=pricing.quote(OWNER,List.of(seat));var booking=pricing.confirm(OWNER,List.of(seat),UUID.randomUUID().toString(),quote.id());
+        catalog.transition(event,"CLOSED",OWNER);
+        var inventory=jdbc.queryForList("SELECT * FROM seat WHERE event_id=? ORDER BY id",event);
+        var prices=jdbc.queryForList("SELECT * FROM event_price WHERE event_id=?",event);
+        mvc.perform(post("/api/admin/catalog/events/"+event+"/reopen").with(admin()).with(csrf())).andExpect(status().isOk());
+        assertEquals(inventory,jdbc.queryForList("SELECT * FROM seat WHERE event_id=? ORDER BY id",event));
+        assertEquals(prices,jdbc.queryForList("SELECT * FROM event_price WHERE event_id=?",event));
+        assertEquals(14845,pricing.receipt(booking.id(),OWNER).totalMinor());
+        assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM catalog_audit WHERE resource_id=? AND action='REOPEN'",Integer.class,event));
+        assertEquals(3,jdbc.queryForObject("SELECT revision FROM event WHERE id=?",Integer.class,event));
+        mvc.perform(get("/api/events/"+event)).andExpect(status().isOk());
+        UUID free=jdbc.queryForList("SELECT id FROM seat WHERE event_id=? AND status='AVAILABLE'",UUID.class,event).getFirst();
+        holds.holdSeat(free,OWNER);
+    }
+    @Test void reopeningRejectsInvalidStatesAndRequiresAdminAndCsrf() throws Exception {
+        UUID event=event();String url="/api/admin/catalog/events/"+event+"/reopen";
+        mvc.perform(post(url).with(admin()).with(csrf())).andExpect(status().isConflict());
+        catalog.transition(event,"PUBLISHED",OWNER);
+        mvc.perform(post(url).with(admin()).with(csrf())).andExpect(status().isConflict());
+        catalog.transition(event,"CLOSED",OWNER);
+        mvc.perform(post(url).with(admin())).andExpect(status().isForbidden());
+        mvc.perform(post(url).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(OWNER.toString()).roles("CUSTOMER")).with(csrf())).andExpect(status().isForbidden());
+        catalog.archive(event,OWNER);
+        mvc.perform(post(url).with(admin()).with(csrf())).andExpect(status().isConflict());
+        UUID ended=event();catalog.transition(ended,"PUBLISHED",OWNER);catalog.transition(ended,"CLOSED",OWNER);
+        jdbc.update("UPDATE event SET sale_start_time=now()-interval '2 hours',sale_end_time=now()-interval '1 hour' WHERE id=?",ended);
+        mvc.perform(post("/api/admin/catalog/events/"+ended+"/reopen").with(admin()).with(csrf())).andExpect(status().isConflict());
+        jdbc.update("UPDATE event SET event_time=now()-interval '30 minutes' WHERE id=?",ended);
+        mvc.perform(post("/api/admin/catalog/events/"+ended+"/reopen").with(admin()).with(csrf())).andExpect(status().isConflict());
+        assertEquals("CLOSED",jdbc.queryForObject("SELECT publication FROM event WHERE id=?",String.class,ended));
+    }
     String contentBody(long revision) throws Exception {
         return json.writeValueAsString(Map.of("revision",revision,"description","Updated description","category","Theatre","posterUrl","https://example.com/new.png"));
     }
