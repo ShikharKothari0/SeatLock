@@ -28,6 +28,50 @@ public class CatalogService {
         @NotNull @Size(max=2048) String posterUrl, @Min(1) @Max(1440) Integer durationMinutes,
         @NotNull Instant saleStartTime,@NotNull Instant saleEndTime,@NotNull Instant eventTime,
         @NotNull @Min(0) @Max(100000000) Long feeMinor,@NotEmpty @Size(max=20) List<@Valid Price> prices) {}
+    public record ContentInput(@NotNull @Min(0) Long revision,
+        @NotNull @Size(max=5000) String description,
+        @NotNull @Pattern(regexp="Music|Comedy|Theatre|Sports|Workshop|Other") String category,
+        @NotNull @Size(max=2048) String posterUrl) {}
+    private String validatedPoster(String value) {
+        String poster=value.strip();
+        if(!poster.isEmpty()) {
+            try {
+                var uri=java.net.URI.create(poster);
+                if(!"https".equalsIgnoreCase(uri.getScheme()) || uri.getHost()==null || uri.getUserInfo()!=null)
+                    throw new IllegalArgumentException();
+            } catch(IllegalArgumentException ex) { throw new IllegalArgumentException("Poster must be a valid HTTPS image URL without credentials"); }
+        }
+        return poster;
+    }
+    @Transactional public void updateContent(UUID id,ContentInput input,UUID actor) {
+        var rows=jdbc.queryForList("SELECT revision FROM event WHERE id=? FOR UPDATE",id);
+        if(rows.isEmpty()) throw new ResourceNotFoundException("Event not found");
+        if(((Number)rows.getFirst().get("revision")).longValue()!=input.revision())
+            throw new SeatNotAvailableException("This event changed. Reload it before saving again");
+        String poster=validatedPoster(input.posterUrl());
+        jdbc.update("UPDATE event SET description=?,category=?,poster_url=?,revision=revision+1 WHERE id=?",
+            input.description().strip(),input.category(),poster,id);
+        audit(actor,"EDIT_CONTENT",id);
+    }
+    @Transactional public void archive(UUID id,UUID actor) {
+        var rows=jdbc.queryForList("SELECT publication,archived FROM event WHERE id=? FOR UPDATE",id);
+        if(rows.isEmpty()) throw new ResourceNotFoundException("Event not found");
+        if("DRAFT".equals(rows.getFirst().get("publication"))) throw new SeatNotAvailableException("Delete an unused draft instead of archiving it");
+        if(Boolean.TRUE.equals(rows.getFirst().get("archived"))) return;
+        jdbc.update("UPDATE event SET archived=true,publication='CLOSED',revision=revision+1 WHERE id=?",id);
+        audit(actor,"ARCHIVE",id);
+    }
+    @Transactional public void deleteDraft(UUID id,UUID actor) {
+        var rows=jdbc.queryForList("SELECT publication FROM event WHERE id=? FOR UPDATE",id);
+        if(rows.isEmpty()) throw new ResourceNotFoundException("Event not found");
+        if(!"DRAFT".equals(rows.getFirst().get("publication"))) throw new SeatNotAvailableException("Only unpublished drafts can be deleted");
+        if(Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM booking WHERE event_id=?) OR EXISTS(SELECT 1 FROM checkout_quote WHERE event_id=?) OR EXISTS(SELECT 1 FROM seat WHERE event_id=? AND (status<>'AVAILABLE' OR booking_id IS NOT NULL))",Boolean.class,id,id,id)))
+            throw new SeatNotAvailableException("This event has reservation records and cannot be deleted");
+        jdbc.update("DELETE FROM event_price WHERE event_id=?",id);
+        jdbc.update("DELETE FROM seat WHERE event_id=?",id);
+        jdbc.update("DELETE FROM event WHERE id=?",id);
+        audit(actor,"DELETE_DRAFT",id);
+    }
     public Map<String,Object> preview(UUID id) {
         var rows=jdbc.queryForList("SELECT e.*,v.name AS venue_name,v.city AS venue_city FROM event e JOIN venue v ON v.id=e.venue_id WHERE e.id=?",id);
         if(rows.isEmpty()) throw new ResourceNotFoundException("Event not found");
@@ -43,14 +87,7 @@ public class CatalogService {
         if(((Number)event.get("revision")).longValue()!=input.revision()) throw new SeatNotAvailableException("This draft changed. Reload it before saving again");
         if(!input.saleStartTime().isBefore(input.saleEndTime()) || input.saleEndTime().isAfter(input.eventTime()) || !input.eventTime().isAfter(Instant.now()))
             throw new IllegalArgumentException("Sales must start before closing and close no later than the future event time");
-        String poster=input.posterUrl().strip();
-        if(!poster.isEmpty()) {
-            try {
-                var uri=java.net.URI.create(poster);
-                if(!"https".equalsIgnoreCase(uri.getScheme()) || uri.getHost()==null || uri.getUserInfo()!=null)
-                    throw new IllegalArgumentException();
-            } catch(IllegalArgumentException ex) { throw new IllegalArgumentException("Poster must be a valid HTTPS image URL without credentials"); }
-        }
+        String poster=validatedPoster(input.posterUrl());
         var expected=new HashSet<>(jdbc.queryForList("SELECT DISTINCT section FROM seat WHERE event_id=?",String.class,id));
         var prices=new HashMap<String,Long>();
         for(var price:input.prices()) if(prices.put(price.section(),price.amountMinor())!=null) throw new IllegalArgumentException("Duplicate section price");
@@ -73,7 +110,7 @@ public class CatalogService {
             "sections",jdbc.queryForList("SELECT section,amount_minor AS \"amountMinor\" FROM event_price WHERE event_id=? ORDER BY section",event));
     }
     public void visible(UUID event) {
-        if (!Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM event WHERE id=? AND publication<>'DRAFT')",Boolean.class,event)))
+        if (!Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM event WHERE id=? AND publication<>'DRAFT' AND NOT archived)",Boolean.class,event)))
             throw new ResourceNotFoundException("Event not found");
     }
     private void audit(UUID actor,String action,UUID id) { jdbc.update("INSERT INTO catalog_audit(id,actor_id,action,resource_id) VALUES (?,?,?,?)",UUID.randomUUID(),actor,action,id); }

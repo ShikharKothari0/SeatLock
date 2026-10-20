@@ -8,7 +8,7 @@ Create a venue and draft event in Events and venues, then choose **Edit and prev
 
 The preview shows saved data, not unsaved form values. Draft previews require an administrator account and stay unavailable through public event endpoints. Preview pages have no customer booking action. The venue and copied seating layout cannot be changed by this editor.
 
-Only DRAFT events can be edited. A published or closed event is read-only, including its content, schedule and prices. Existing reservations and receipts are therefore unaffected. Every save records an audit entry and increments a revision. A stale save receives a conflict instead of silently replacing another administrator's changes; reload the saved event before trying again. Publication and editing lock the same event row.
+Drafts support full editorial and pricing changes. Published, closed and archived events allow description, category and poster edits only; their name, duration, schedule and prices remain locked. Existing reservations and receipts are unaffected. Every save records an audit entry and increments a revision. A stale save receives a conflict instead of silently replacing another administrator's changes; reload the saved event before trying again. Publication and editing lock the same event row.
 
 ## Event content and posters
 
@@ -22,7 +22,7 @@ The home page combines event/venue-name search, city, category and inclusive fro
 
 Events whose start time has passed are hidden by default. Include past events makes them discoverable without deleting them or affecting booking history. Future events with closed sales remain visible with a closed-sales label. Past events, closed sales and future sales openings do not offer new seat selection; the backend still enforces the actual sale window independently.
 
-Filtering currently runs on the public event list in the browser, suitable for the small personal-project catalogue. Server-side pagination/search, recurrence, event cancellation/refunds, editing published events and a venue-layout editor remain outside this milestone.
+Filtering currently runs on the public event list in the browser, suitable for the small personal-project catalogue. Server-side pagination/search, recurrence, event cancellation/refunds, published schedule/price changes and a venue-layout editor remain outside this milestone.
 
 ## API
 
@@ -37,3 +37,16 @@ Focused backend tests cover private preview/publication, stale edits, published-
 Verified locally on 19 October 2026: 21 backend integration tests (EventEditorialTest, CatalogPricingTest and DemoPaymentTest), 17 frontend unit tests, 13 controlled browser scenarios and 5 live catalogue checks passed. Frontend build and lint passed. The mobile discovery screenshot was visually reviewed, and the browser check verified no horizontal overflow. Flyway V9 is applied locally and backend health reports UP. Controlled browser tests use API fixtures; the live catalogue checks use the running services. These results do not establish deployment or production-load readiness.
 
 Subsequent milestone: [PostgreSQL persistence and backup/restore](database-recovery.md) is verified locally. Deployment packaging is now locally verified; next are CI/release checks and real-host validation.
+
+
+## Published details, archive and draft deletion (20 October 2026)
+
+Administrators can use **Edit details and preview** to update descriptions, categories and HTTPS poster URLs after publication, including closed or archived events. Titles, duration, venue, schedule, prices and seats remain locked. Revision checks reject stale saves. The content endpoint accepts only the permitted fields and rejects additional fields sent by a client.
+
+**Archive event** closes sales and hides the event from public lists, details, seat lists and price lookup. Booking receipts and history remain accessible to their owners. Archive is not a return to draft; reopening is not provided. Existing pending reservations cannot complete after sales close, but can be released or expire normally.
+
+**Delete draft** removes an unpublished event, its section prices and generated seats. It retains the reusable venue layout and audit trail. Published/closed/archived events and drafts containing reservation records cannot be deleted. Both actions ask for confirmation in the interface and require administrator authentication and CSRF protection.
+
+Migration V10 adds the archive flag, defaulting to false, with a database constraint requiring archived events to have closed sales. No existing event is archived or deleted by migration.
+
+Validation for this update: nine EventEditorialTest integration tests passed against isolated PostgreSQL/Redis containers; all seven live catalogue/browser scenarios passed against the local Docker deployment. Frontend build, lint and 17 unit tests passed, and both Docker images built successfully. Hosted deployment of this update must still complete before these controls are available on the public site.

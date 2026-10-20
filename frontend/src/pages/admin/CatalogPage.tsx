@@ -5,7 +5,7 @@ import api from '../../lib/api';
 import { AdminLayout } from '../../components/admin/AdminLayout';
 import { money } from '../../lib/money';
 type Venue = { id: string; name: string; city: string; timezone: string; layout_seats: number };
-type Event = { id: string; name: string; venue_name: string; publication: string; event_time: string; fee_minor: number; prices: { section: string; amountMinor: number }[] };
+type Event = { id: string; name: string; venue_name: string; publication: string; archived: boolean; event_time: string; fee_minor: number; prices: { section: string; amountMinor: number }[] };
 const field = 'block w-full border rounded p-2 bg-white dark:bg-slate-900 mt-1';
 function minor(value: string) {
   if (!/^\d{1,6}(\.\d{1,2})?$/.test(value)) throw new Error('Enter an INR amount with at most two decimal places.');
@@ -70,11 +70,19 @@ export function CatalogPage() {
       <label className="block">Booking fee per booking (INR)<input className={field} name="fee" inputMode="decimal" defaultValue="0.00" required /></label>
       <button disabled={busy || !layout.data?.length} className="bg-indigo-700 text-white rounded px-4 py-2">Create draft event</button>
     </form>
-    <section className="space-y-4"><h2 className="text-xl font-semibold">3. Publish or close sales</h2>
+    <section className="space-y-4"><h2 className="text-xl font-semibold">3. Manage events</h2>
       {(events.error || venues.error || layout.error) && <p role="alert">Unable to load catalog data. Reload to retry.</p>}
-      {events.data?.map(event => <article key={event.id} className="border rounded-lg p-4 flex flex-wrap gap-4 justify-between"><div><h3 className="font-semibold">{event.name}</h3><p>{event.venue_name} · {new Date(event.event_time).toLocaleString()} · {event.publication}</p><p>{event.prices.map(price => `${price.section}: ${money(price.amountMinor)}`).join(' · ')} · Booking fee: {money(event.fee_minor)}</p></div>
-        <Link to={`/admin/catalog/events/${event.id}`} className="text-indigo-700 dark:text-indigo-300">{event.publication === 'DRAFT' ? 'Edit and preview' : 'Preview event'}</Link>
-        {event.publication !== 'CLOSED' && <button disabled={busy} onClick={() => void run(async () => { await api.post(`/admin/catalog/events/${event.id}/${event.publication === 'DRAFT' ? 'publish' : 'close'}`); setNotice(event.publication === 'DRAFT' ? 'Event published.' : 'Sales closed; existing bookings are retained.'); })}>{event.publication === 'DRAFT' ? 'Publish event' : 'Close sales'}</button>}
+      {events.data?.map(event => <article key={event.id} className="border rounded-lg p-4 flex flex-wrap gap-4 justify-between"><div><h3 className="font-semibold">{event.name}</h3><p>{event.venue_name} · {new Date(event.event_time).toLocaleString()} · {event.archived ? 'ARCHIVED' : event.publication}</p><p>{event.prices.map(price => `${price.section}: ${money(price.amountMinor)}`).join(' · ')} · Booking fee: {money(event.fee_minor)}</p></div>
+        <Link to={`/admin/catalog/events/${event.id}`} className="text-indigo-700 dark:text-indigo-300">{event.publication === 'DRAFT' ? 'Edit and preview' : 'Edit details and preview'}</Link>
+        {!event.archived && event.publication !== 'CLOSED' && <button disabled={busy} onClick={() => void run(async () => { await api.post(`/admin/catalog/events/${event.id}/${event.publication === 'DRAFT' ? 'publish' : 'close'}`); setNotice(event.publication === 'DRAFT' ? 'Event published.' : 'Sales closed; existing bookings are retained.'); })}>{event.publication === 'DRAFT' ? 'Publish event' : 'Close sales'}</button>}
+        {event.publication === 'DRAFT' && <button disabled={busy} className="text-red-700 dark:text-red-400" onClick={() => {
+          if (!window.confirm(`Delete draft "${event.name}" and its seats? This cannot be undone.`)) return;
+          void run(async () => { await api.delete(`/admin/catalog/events/${event.id}`); setNotice('Draft deleted. Its venue is available for reuse.'); });
+        }}>Delete draft</button>}
+        {event.publication !== 'DRAFT' && !event.archived && <button disabled={busy} onClick={() => {
+          if (!window.confirm(`Archive "${event.name}"? It will be hidden and new bookings will stop. Existing receipts will remain available.`)) return;
+          void run(async () => { await api.post(`/admin/catalog/events/${event.id}/archive`); setNotice('Event archived; existing bookings and receipts are retained.'); });
+        }}>Archive event</button>}
       </article>)}
     </section>
   </div></AdminLayout>;

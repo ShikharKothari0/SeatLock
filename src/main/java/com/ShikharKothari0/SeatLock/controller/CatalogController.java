@@ -14,6 +14,9 @@ public class CatalogController {
     @GetMapping("/events") public Object events() { return catalog.events(); }
     @GetMapping("/events/{id}") public Object preview(@PathVariable UUID id) { return catalog.preview(id); }
     @PutMapping("/events/{id}") public void edit(@PathVariable UUID id,@Valid @RequestBody CatalogService.DraftInput input,Principal actor) { catalog.updateDraft(id,input,UUID.fromString(actor.getName())); }
+    @PutMapping("/events/{id}/content") public void content(@PathVariable UUID id,@Valid @RequestBody CatalogService.ContentInput input,Principal actor) { catalog.updateContent(id,input,UUID.fromString(actor.getName())); }
+    @PostMapping("/events/{id}/archive") public void archive(@PathVariable UUID id,Principal actor) { catalog.archive(id,UUID.fromString(actor.getName())); }
+    @DeleteMapping("/events/{id}") public void deleteDraft(@PathVariable UUID id,Principal actor) { catalog.deleteDraft(id,UUID.fromString(actor.getName())); }
     @PostMapping("/venues") @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
     public Object venue(@Valid @RequestBody CatalogService.VenueInput input,Principal actor) { return Map.of("id",catalog.createVenue(input,UUID.fromString(actor.getName()))); }
     @PostMapping("/events") @ResponseStatus(org.springframework.http.HttpStatus.CREATED)

@@ -10,7 +10,7 @@ const sql = query => execFileSync('docker', ['compose',...compose,'exec','-T','p
 const ui=process.env.SEATLOCK_TEST_URL ?? 'http://127.0.0.1:5173';
 const report={startedAt:new Date().toISOString(),checks:[]};
 const pass=name=>{report.checks.push(name); console.log('PASS',name);};
-let browser;
+let browser; let adminPage;
 const capture = process.env.SEATLOCK_CAPTURE_DEMO === '1';
 const contexts = [];
 const videoOptions = capture ? {recordVideo:{dir:'test-results/demo-videos',size:{width:1440,height:1000}},viewport:{width:1440,height:1000}} : {};
@@ -19,7 +19,7 @@ try {
   const admin=await createAccount(sql,true), customer=await createAccount(sql);
   browser=await chromium.launch({headless:true,...(process.env.BROWSER_CHANNEL?{channel:process.env.BROWSER_CHANNEL}:{})});
   const adminContext=await browser.newContext({...videoOptions,storageState:await accounts.get(admin).storageState()}); contexts.push(adminContext);
-  const page=await adminContext.newPage(); const errors=[]; page.on('pageerror',e=>errors.push(e.message));
+  const page=await adminContext.newPage(); adminPage=page; const errors=[]; page.on('pageerror',e=>errors.push(e.message));
   if(capture) report.adminVideo=await page.video().path();
   await page.goto(ui+'/admin/catalog');
   const venueName=capture?'Riverside Arena':'Catalog venue '+randomUUID().slice(0,8), eventName=capture?'An Evening of Live Music':'Catalog event '+randomUUID().slice(0,8);
@@ -82,7 +82,32 @@ try {
   assert.equal((await send(accounts.get(customer),`/api/seats/${seats[2].id}/hold`,'POST',{})).status,409);
   assert.equal((await send(accounts.get(customer),`/api/bookings/${report.bookingId}`)).status,200);
   pass('sales closure blocks new reservations and preserves existing receipts');
+  await article.getByRole('link',{name:'Edit details and preview',exact:true}).click();
+  await page.waitForURL('**/admin/catalog/events/'+report.eventId);
+  await page.getByLabel('Description',{exact:true}).fill('Updated after publication.');
+  assert.equal(await page.getByLabel('Event name',{exact:true}).isDisabled(),true);
+  await page.getByRole('button',{name:'Save details',exact:true}).click();
+  await page.getByText('Event details saved. Seating, prices and schedule are unchanged.',{exact:true}).waitFor();
+  await page.getByRole('link',{name:'Back to events and venues'}).click();
+  page.once('dialog',dialog=>dialog.accept());
+  await page.getByRole('article').filter({has:page.getByRole('heading',{name:eventName,exact:true})}).getByRole('button',{name:'Archive event',exact:true}).click();
+  await page.getByText('Event archived; existing bookings and receipts are retained.',{exact:true}).waitFor();
+  assert.equal((await send(accounts.get(customer),`/api/events/${report.eventId}`)).status,404);
+  assert.equal((await send(accounts.get(customer),`/api/bookings/${report.bookingId}`)).status,200);
+  pass('published details can be edited and archive hides the event while preserving its receipt');
+  const disposableName='Disposable draft '+randomUUID();
+  const disposable=await send(accounts.get(admin),'/api/admin/catalog/events','POST',{venueId:report.venueId,name:disposableName,saleStartTime:new Date(Date.now()-60000).toISOString(),saleEndTime:new Date(Date.now()+3600000).toISOString(),eventTime:new Date(Date.now()+7200000).toISOString(),feeMinor:0,prices:[{section:'Premium',amountMinor:10000}]});
+  assert.equal(disposable.status,201);
+  const disposableId=sql(`SELECT id FROM event WHERE name='${disposableName}'`);
+  await page.reload();
+  const disposableCard=page.getByRole('article').filter({hasText:disposableName});
+  page.once('dialog',dialog=>dialog.accept());
+  await disposableCard.getByRole('button',{name:'Delete draft',exact:true}).click();
+  await page.getByText('Draft deleted. Its venue is available for reuse.',{exact:true}).waitFor();
+  assert.equal((await send(accounts.get(admin),`/api/admin/catalog/events/${disposableId}`)).status,404);
+  pass('administrator can delete an unused draft through the UI');
+
   await page.evaluate(()=>window.scrollTo(0,0));
   await page.screenshot({path:'test-results/catalog-admin.png',fullPage:true}); assert.deepEqual(errors,[]); report.result='PASS';
-} catch(error) {report.result='FAIL';report.error=error.stack;throw error;}
+} catch(error) { if(adminPage) { console.log('Admin page at failure:',await adminPage.locator('body').innerText()); await adminPage.screenshot({path:'test-results/catalog-failure.png',fullPage:true}); } report.result='FAIL';report.error=error.stack;throw error;}
 finally {await writeFile('test-results/catalog-validation.json',JSON.stringify(report,null,2));await Promise.all(contexts.map(context=>context.close()));await browser?.close();await disposeAccounts();}

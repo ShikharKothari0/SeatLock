@@ -13,7 +13,7 @@ Sign in with an ADMIN account and open `/admin/catalog` (Events & venues). Admin
 
 Each event copies its venue layout into independent seat inventory with new IDs. Booking a physical seat at one event does not allocate it for another event. Catalog creation/publication/closure records the administrator UUID, action, resource and timestamp in `catalog_audit`.
 
-This first workflow supports creation, publication and sales closure. Editing layouts/prices/events, deleting drafts, CSV import, operational seat blocking and event cancellation/refunds remain future work. Closing sales is not cancellation and does not change confirmed bookings.
+The workflow also supports draft editing/deletion, published description/category/poster edits, and archiving; see [event management](event-catalogue.md). Editing venue layouts, published prices/schedules, CSV import, operational seat blocking and event cancellation/refunds remain future work. Closing sales is not cancellation and does not change confirmed bookings.
 
 ## Pricing and confirmation
 

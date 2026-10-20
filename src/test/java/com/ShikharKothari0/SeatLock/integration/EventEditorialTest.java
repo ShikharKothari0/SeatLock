@@ -87,4 +87,50 @@ class EventEditorialTest {
         assertEquals(0,jdbc.queryForObject("SELECT revision FROM event WHERE id=?",Integer.class,event));
         assertEquals(12345,jdbc.queryForObject("SELECT amount_minor FROM event_price WHERE event_id=?",Integer.class,event));
     }
+
+    String contentBody(long revision) throws Exception {
+        return json.writeValueAsString(Map.of("revision",revision,"description","Updated description","category","Theatre","posterUrl","https://example.com/new.png"));
+    }
+    @Test void publishedContentChangesPreserveBookingsAndRejectStaleWrites() throws Exception {
+        UUID event=event(),seat=seat(event);catalog.transition(event,"PUBLISHED",OWNER);holds.holdSeat(seat,OWNER);
+        var quote=pricing.quote(OWNER,List.of(seat));var booking=pricing.confirm(OWNER,List.of(seat),UUID.randomUUID().toString(),quote.id());
+        var before=jdbc.queryForMap("SELECT name,event_time,sale_end_time,fee_minor FROM event WHERE id=?",event);
+        mvc.perform(put("/api/admin/catalog/events/"+event+"/content").with(admin()).with(csrf()).contentType("application/json").content(contentBody(1).replace("{","{\"feeMinor\":1,"))).andExpect(status().isBadRequest());
+        mvc.perform(put("/api/admin/catalog/events/"+event+"/content").with(admin()).with(csrf()).contentType("application/json").content(contentBody(1))).andExpect(status().isOk());
+        mvc.perform(get("/api/events/"+event)).andExpect(status().isOk()).andExpect(jsonPath("$.description").value("Updated description"));
+        assertEquals(before,jdbc.queryForMap("SELECT name,event_time,sale_end_time,fee_minor FROM event WHERE id=?",event));
+        assertEquals(14845,pricing.receipt(booking.id(),OWNER).totalMinor());
+        mvc.perform(put("/api/admin/catalog/events/"+event+"/content").with(admin()).with(csrf()).contentType("application/json").content(contentBody(1))).andExpect(status().isConflict());
+    }
+    @Test void archiveHidesInventoryStopsSalesAndPreservesReceipts() throws Exception {
+        UUID event=event(),seat=seat(event);catalog.transition(event,"PUBLISHED",OWNER);holds.holdSeat(seat,OWNER);
+        var quote=pricing.quote(OWNER,List.of(seat));var booking=pricing.confirm(OWNER,List.of(seat),UUID.randomUUID().toString(),quote.id());
+        mvc.perform(post("/api/admin/catalog/events/"+event+"/archive").with(admin()).with(csrf())).andExpect(status().isOk());
+        mvc.perform(get("/api/events/"+event)).andExpect(status().isNotFound());
+        mvc.perform(get("/api/events/"+event+"/seats")).andExpect(status().isNotFound());
+        mvc.perform(get("/api/events")).andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString(event.toString()))));
+        assertEquals(14845,pricing.receipt(booking.id(),OWNER).totalMinor());
+        UUID free=jdbc.queryForList("SELECT id FROM seat WHERE event_id=? AND status='AVAILABLE'",UUID.class,event).getFirst();
+        assertThrows(com.ShikharKothari0.SeatLock.exception.SeatNotAvailableException.class,()->holds.holdSeat(free,OWNER));
+        mvc.perform(put("/api/admin/catalog/events/"+event+"/content").with(admin()).with(csrf()).contentType("application/json").content(contentBody(2))).andExpect(status().isOk());
+        mvc.perform(delete("/api/admin/catalog/events/"+event).with(admin()).with(csrf())).andExpect(status().isConflict());
+        mvc.perform(post("/api/admin/catalog/events/"+event+"/publish").with(admin()).with(csrf())).andExpect(status().isConflict());
+    }
+    @Test void deleteDraftRemovesOnlyItsInventoryAndRetainsVenueAndAudit() throws Exception {
+        UUID event=event();UUID venue=jdbc.queryForObject("SELECT venue_id FROM event WHERE id=?",UUID.class,event);
+        mvc.perform(delete("/api/admin/catalog/events/"+event).with(admin()).with(csrf())).andExpect(status().isOk());
+        assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM seat WHERE event_id=?",Integer.class,event));
+        assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM event WHERE id=?",Integer.class,event));
+        assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM venue WHERE id=?",Integer.class,venue));
+        assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM catalog_audit WHERE resource_id=? AND action='DELETE_DRAFT'",Integer.class,event));
+    }
+    @Test void contentArchiveAndDeleteRequireAdminAndCsrf() throws Exception {
+        UUID event=event();var customer=org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(OWNER.toString()).roles("CUSTOMER");
+        mvc.perform(put("/api/admin/catalog/events/"+event+"/content").with(customer).with(csrf()).contentType("application/json").content(contentBody(0))).andExpect(status().isForbidden());
+        mvc.perform(put("/api/admin/catalog/events/"+event+"/content").with(admin()).contentType("application/json").content(contentBody(0))).andExpect(status().isForbidden());
+        mvc.perform(post("/api/admin/catalog/events/"+event+"/archive").with(customer).with(csrf())).andExpect(status().isForbidden());
+        mvc.perform(post("/api/admin/catalog/events/"+event+"/archive").with(admin())).andExpect(status().isForbidden());
+        mvc.perform(delete("/api/admin/catalog/events/"+event).with(customer).with(csrf())).andExpect(status().isForbidden());
+        mvc.perform(delete("/api/admin/catalog/events/"+event).with(admin())).andExpect(status().isForbidden());
+    }
 }
