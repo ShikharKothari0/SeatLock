@@ -15,11 +15,12 @@ public class SecurityConfig {
 
     @Bean SecurityFilterChain security(HttpSecurity http) throws Exception {
         return http.cors(Customizer.withDefaults())
+            .csrf(csrf -> csrf.ignoringRequestMatchers("/api/payments/razorpay/webhook"))
             .addFilterBefore(new AuthRateLimitFilter(), org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
                 .dispatcherTypeMatchers(jakarta.servlet.DispatcherType.ERROR, jakarta.servlet.DispatcherType.ASYNC).permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/events", "/api/events/**", "/api/auth/csrf", "/actuator/health").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login", "/api/payments/razorpay/webhook").permitAll()
                 .requestMatchers("/api/admin/**", "/actuator/**").hasRole("ADMIN")
                 .anyRequest().authenticated())
             .requestCache(cache -> cache.disable())

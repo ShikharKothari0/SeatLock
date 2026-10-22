@@ -64,6 +64,7 @@ export interface PaymentAttempt {
   readyAt: string; expiresAt: string; resultCode: string | null; booking: BookingResponse | null; demo: boolean;
 }
 export interface BookingConfirmRequest {
+  provider?: 'DEMO' | 'RAZORPAY';
   method?: PaymentMethod;
   scenario?: PaymentScenario;
   quoteId?: string;

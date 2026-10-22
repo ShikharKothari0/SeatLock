@@ -231,6 +231,10 @@ The next steps are private provider configuration, backend startup, Vercel conne
 
 ## Repository guide
 
+Optional sandbox checkout: [Razorpay Test Mode setup and recovery](docs/razorpay-test-mode.md).
+The default remains the built-in demo provider; enabling Razorpay requires test
+keys and a signed webhook configuration. Live keys are rejected.
+
 ```text
 src/main/java/.../SeatLock/   Controllers, services, entities, repositories, Kafka, configuration
 src/main/resources/          Application settings, Flyway migrations, Redis Lua scripts

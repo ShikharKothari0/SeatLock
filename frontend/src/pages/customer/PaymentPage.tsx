@@ -6,8 +6,19 @@ import { useSessionStore } from '../../store/sessionStore';
 import { useBookingConfirm } from '../../hooks/useBookingConfirm';
 import { HoldTimer } from '../../components/customer/HoldTimer';
 import { PriceBreakdown } from '../../components/customer/PriceBreakdown';
+import { useQuery } from '@tanstack/react-query';
+import api from '../../lib/api';
+import { RazorpayPaymentPage } from './RazorpayPaymentPage';
 
 export function PaymentPage() {
+  const pending=useSessionStore(s=>s.pendingConfirmation);
+  const config=useQuery({queryKey:['payment-config'],queryFn:()=>api.get<{provider:'DEMO'|'RAZORPAY'}>('/payments/config').then(r=>r.data)});
+  if(pending) return pending.provider==='RAZORPAY'?<RazorpayPaymentPage/>:<DemoPaymentPage/>;
+  if(config.isLoading)return <p role="status" className="p-8">Loading payment options…</p>;
+  if(config.error)return <main className="p-8"><p role="alert">Unable to load payment options.</p><button onClick={()=>void config.refetch()}>Retry</button></main>;
+  return config.data?.provider==='RAZORPAY'?<RazorpayPaymentPage/>:<DemoPaymentPage/>;
+}
+function DemoPaymentPage() {
   const navigate = useNavigate();
   const { event, quote, heldSeatIds, holdExpiresAt, pendingConfirmation, clearHold } = useSessionStore();
   const [now, setNow] = useState(Date.now());

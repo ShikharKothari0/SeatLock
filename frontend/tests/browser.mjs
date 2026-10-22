@@ -17,6 +17,14 @@ const circuitBreakers = [{ name: 'redisLock', state: 'CLOSED', failureRate: -1, 
 async function fixture(options = {}) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();
+  if(options.razorpay) await page.addInitScript(mode=>{
+    window.Razorpay=class {
+      constructor(options){this.options=options;}
+      on(){}
+      close(){}
+      open(){if(mode==='dismiss')this.options.modal.ondismiss();else this.options.handler({razorpay_payment_id:'pay_fixture',razorpay_signature:'a'.repeat(64)});}
+    };
+  },options.razorpay);
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
   const seats = options.seats ?? Array.from({ length: 100 }, (_, index) => ({ id: `seat-${index + 1}`, seatNumber: `A${index + 1}`, section: 'Section A', status: 'AVAILABLE' }));
@@ -32,12 +40,27 @@ async function fixture(options = {}) {
     const url = new URL(request.url());
     let data;
     let status = 200;
-    if (url.pathname === '/api/auth/me') data = { id: '33333333-3333-3333-3333-333333333333', email: 'test@example.test', displayName: 'Test', role: 'ADMIN' };
+    if (url.pathname === '/api/payments/config') data = {provider:options.razorpay?'RAZORPAY':'DEMO',testMode:true};
+    else if (url.pathname === '/api/auth/me') data = { id: '33333333-3333-3333-3333-333333333333', email: 'test@example.test', displayName: 'Test', role: 'ADMIN' };
     else if (url.pathname === '/api/auth/csrf') data = { headerName: 'X-CSRF-TOKEN', token: 'fixture-token' };
     else if (url.pathname === '/api/events') data = options.catalog ?? [event];
     else if (url.pathname === '/api/events/event-1') data = event;
     else if (url.pathname === '/api/events/event-1/seats') data = seats;
     else if (url.pathname === '/api/events/event-1/prices') data = { currency: 'INR', feeMinor: 0, sections: options.sections ?? [{ section: 'Section A', amountMinor: 50000 }] };
+    else if(url.pathname === '/api/payments/razorpay') {
+      const payload=request.postDataJSON();
+      if(!payments.has(payload.idempotencyKey))payments.set(payload.idempotencyKey,{...payload,id:payload.idempotencyKey,status:'PENDING',orderId:'order_fixture',keyId:'rzp_test_fixture',amountMinor:50000,currency:'INR',expiresAt:new Date(Date.now()+120000).toISOString(),testMode:true,booking:null});
+      data=payments.get(payload.idempotencyKey);
+    } else if(url.pathname.startsWith('/api/payments/razorpay/')) {
+      data=payments.get(url.pathname.split('/')[4]);
+      if(url.pathname.endsWith('/verify')) {
+        data.status=options.razorpay==='refund'?'REFUND_PENDING':'SUCCEEDED';
+        if(data.status==='SUCCEEDED') {
+          data.booking={id:'booking-rzp',eventId:event.id,seatIds:data.seatIds,status:'CONFIRMED',createdAt:new Date().toISOString()};
+          receipt={booking:data.booking,event,seats:seats.filter(s=>data.seatIds.includes(s.id))};
+        }
+      }
+    }
     else if (url.pathname === '/api/payments') {
       const payload = request.postDataJSON();
       if (!payments.has(payload.idempotencyKey)) payments.set(payload.idempotencyKey, {
@@ -114,6 +137,42 @@ try {
   }
   browser = await chromium.launch({ headless: true, ...(process.env.BROWSER_CHANNEL ? { channel: process.env.BROWSER_CHANNEL } : {}) });
   await mkdir('test-results', { recursive: true });
+  await run('Razorpay test checkout verifies and navigates to a real receipt',async()=>{
+    const f=await fixture({razorpay:'success'});
+    try{
+      await select(f.page,['seat-1']);
+      await f.page.getByRole('button',{name:'Continue to payment'}).click();
+      await f.page.getByRole('heading',{name:'Secure test checkout'}).waitFor();
+      await f.page.screenshot({path:'test-results/razorpay-checkout.png',fullPage:true});
+      await f.page.getByRole('button',{name:'Pay with Razorpay (test)',exact:true}).click();
+      await f.page.getByRole('heading',{name:'Booking confirmed',exact:true}).waitFor();
+      assert.deepEqual(f.pageErrors,[]);
+    }finally{await f.context.close();}
+  });
+  await run('Razorpay dismissed checkout resumes the same attempt after refresh',async()=>{
+    const f=await fixture({razorpay:'dismiss'});
+    try{
+      await select(f.page,['seat-1']);await f.page.getByRole('button',{name:'Continue to payment'}).click();
+      await f.page.getByRole('button',{name:'Pay with Razorpay (test)',exact:true}).click();
+      await f.page.getByText('Checkout closed.',{exact:false}).waitFor();
+      const pending=await f.page.evaluate(()=>JSON.parse(sessionStorage.getItem('seatlock-session-v1')).state.pendingConfirmation);
+      assert.equal(pending.provider,'RAZORPAY');
+      await f.page.reload();await f.page.getByRole('button',{name:'Open Razorpay checkout',exact:true}).waitFor();
+      assert.equal(await f.page.evaluate(()=>JSON.parse(sessionStorage.getItem('seatlock-session-v1')).state.pendingConfirmation.idempotencyKey),pending.idempotencyKey);
+      assert.deepEqual(f.pageErrors,[]);
+    }finally{await f.context.close();}
+  });
+  await run('Razorpay refund pending survives refresh without claiming a booking',async()=>{
+    const f=await fixture({razorpay:'refund'});
+    try{
+      await select(f.page,['seat-1']);await f.page.getByRole('button',{name:'Continue to payment'}).click();
+      await f.page.getByRole('button',{name:'Pay with Razorpay (test)',exact:true}).click();
+      await f.page.getByText('Your test refund is being processed.',{exact:false}).waitFor();
+      await f.page.reload();await f.page.getByText('Your test refund is being processed.',{exact:false}).waitFor();
+      assert.equal(await f.page.getByRole('button',{name:'Pay with Razorpay (test)',exact:true}).count(),0);
+      assert.deepEqual(f.pageErrors,[]);
+    }finally{await f.context.close();}
+  });
   await run('section layout preserves identity, price, status and mobile scrolling', async () => {
     const seats = ['Standard','Premium'].flatMap((section,j)=>Array.from({length:13},(_,i)=>({id:`section-${j}-${i}`,section,seatNumber:`${j?'P':'S'}${i+1}`,status:i===0?'CONFIRMED':'AVAILABLE'})));
     const f=await fixture({seats,sections:[{section:'Premium',displayOrder:0,seatsPerRow:6,centreAisle:true,amountMinor:89900},{section:'Standard',displayOrder:1,seatsPerRow:10,centreAisle:false,amountMinor:49900}]});
@@ -330,6 +389,7 @@ try {
       // URL-backed filters commit through a router transition, after the click.
       await f.page.getByLabel('Include past events').click();
       await f.page.waitForURL(url => url.searchParams.get('past') === '1');
+      await f.page.waitForFunction(()=>[...document.querySelectorAll('input[type=checkbox]')].some(el=>el.checked));
       assert.equal(await f.page.getByLabel('Include past events').isChecked(), true);
       await f.page.getByText('3 event(s) found', { exact: true }).waitFor();
       await f.page.getByText('Past event — booking is closed.', { exact: true }).waitFor();

@@ -27,9 +27,10 @@ public class DemoPaymentService {
     private final boolean enabled;
     public DemoPaymentService(JdbcTemplate jdbc, PricingService pricing, TransactionEffects effects,
             ObjectMapper json, PlatformTransactionManager manager,
-            @Value("${seatlock.payments.demo-enabled:true}") boolean enabled) {
+            @Value("${seatlock.payments.demo-enabled:true}") boolean enabled,
+            @Value("${seatlock.payments.razorpay-enabled:false}") boolean razorpayEnabled) {
         this.jdbc=jdbc; this.pricing=pricing; this.effects=effects; this.json=json;
-        this.tx=new TransactionTemplate(manager); this.enabled=enabled;
+        this.tx=new TransactionTemplate(manager); this.enabled=enabled && !razorpayEnabled;
     }
     private <T> T decode(String value,Class<T> type) {
         try { return json.readValue(value,type); } catch(Exception ex) { throw new IllegalStateException("Invalid payment snapshot",ex); }
@@ -60,7 +61,8 @@ public class DemoPaymentService {
         return result.booking();
     }
     public Attempt start(UUID owner,UUID quoteId,List<UUID> seatIds,String key,Method method,Scenario scenario) {
-        if(!enabled) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,"Demo payments are disabled");
+        if(!enabled && !Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM payment_attempt WHERE idempotency_key=? AND user_id=?)",Boolean.class,key,owner)))
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,"New demo payments are disabled");
         return tx.execute(status->{
             effects.serializeBooking(key);
             var existing=jdbc.queryForList("SELECT * FROM payment_attempt WHERE idempotency_key=?",key);
@@ -74,7 +76,7 @@ public class DemoPaymentService {
             var quote=quote(owner,quoteId,true);
             validateSeats(quote,seatIds);
             if(!quote.expiresAt().isAfter(Instant.now())) throw new SeatNotAvailableException("Quote expired. Review a new total at checkout");
-            if(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM payment_attempt WHERE quote_id=? UNION ALL SELECT 1 FROM booking_price WHERE quote_id=?)",Boolean.class,quoteId,quoteId))
+            if(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM payment_attempt WHERE quote_id=? UNION ALL SELECT 1 FROM booking_price WHERE quote_id=? UNION ALL SELECT 1 FROM razorpay_attempt WHERE quote_id=?)",Boolean.class,quoteId,quoteId,quoteId))
                 throw new SeatNotAvailableException("Quote already used. Review a new total at checkout");
             UUID id=UUID.randomUUID();
             jdbc.update("INSERT INTO payment_attempt(id,user_id,quote_id,idempotency_key,method,scenario,status,amount_minor,currency,ready_at,expires_at) VALUES (?,?,?,?,?,?,'PENDING',?,?,?,?)",
